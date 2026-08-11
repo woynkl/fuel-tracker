@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createBackupPayload, restoreBackup, type BackupTransactionHost } from '@/lib/backup';
+import {
+    BackupExportError,
+    loadBackupPayload,
+    restoreBackup,
+    type BackupExportHost,
+    type BackupTransactionHost,
+} from '@/lib/backup';
 
 export async function GET() {
     try {
-        const vehicle = await prisma.vehicle.findFirst({ orderBy: { createdAt: 'asc' } });
-        if (!vehicle) return NextResponse.json({ error: '暂无车辆数据可导出' }, { status: 404 });
-
-        const fuelRecords = await prisma.fuelRecord.findMany({
-            where: { vehicleId: vehicle.id },
-            orderBy: { mileage: 'asc' },
-        });
-        const backup = createBackupPayload(vehicle, fuelRecords);
+        const backup = await loadBackupPayload(prisma as unknown as BackupExportHost);
         const date = backup.exportedAt.slice(0, 10);
 
         return new NextResponse(JSON.stringify(backup, null, 2), {
@@ -22,6 +21,10 @@ export async function GET() {
             },
         });
     } catch (error) {
+        if (error instanceof BackupExportError) {
+            const status = error.code === 'NO_VEHICLE' ? 404 : 409;
+            return NextResponse.json({ error: error.message }, { status });
+        }
         console.error('导出备份失败', error);
         return NextResponse.json({ error: '导出失败，请稍后重试' }, { status: 500 });
     }

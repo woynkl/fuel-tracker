@@ -4,7 +4,9 @@ import type { Prisma } from '@prisma/client';
 import {
     BACKUP_SCHEMA_VERSION,
     createBackupPayload,
+    loadBackupPayload,
     restoreBackup,
+    type BackupExportHost,
     type BackupTransactionHost,
 } from './backup.ts';
 
@@ -113,4 +115,36 @@ test('导入中任一记录失败时事务回滚，不留下半成功数据', as
 
     await assert.rejects(() => restoreBackup(fake.database, backup), /模拟写入失败/);
     assert.deepEqual(fake.getState(), initial);
+});
+
+test('升数与金额、油价不一致时拒绝导入，旧数据库保持不变', async () => {
+    const initial = {
+        vehicles: [{ id: 'old-vehicle', odometer: 8888 }],
+        fuelRecords: [{ id: 'old-record', mileage: 8888 }],
+        maintenanceConfigs: [{ id: 'old-maintenance' }],
+    };
+    const fake = fakeDatabase(initial);
+    const backup = createBackupPayload(vehicle, records, timestamp);
+    backup.fuelRecords[0] = { ...backup.fuelRecords[0], price: 380, unitPrice: 7.6, liters: 99 };
+
+    await assert.rejects(() => restoreBackup(fake.database, backup), /升数与金额、油价不一致/);
+    assert.deepEqual(fake.getState(), initial);
+});
+
+test('检测到旧版多车辆数据时拒绝导出，不读取或生成不完整记录', async () => {
+    let fuelRecordQueries = 0;
+    const database: BackupExportHost = {
+        vehicle: {
+            findMany: async () => [vehicle, { ...vehicle, id: 'vehicle-2', name: '旧车' }],
+        },
+        fuelRecord: {
+            findMany: async () => {
+                fuelRecordQueries += 1;
+                return records;
+            },
+        },
+    };
+
+    await assert.rejects(() => loadBackupPayload(database, timestamp), /检测到旧版多车辆数据/);
+    assert.equal(fuelRecordQueries, 0);
 });

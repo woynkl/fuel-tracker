@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
 export const BACKUP_SCHEMA_VERSION = 1;
+export const BACKUP_LITERS_TOLERANCE = 0.01;
 
 export type BackupVehicle = {
     id: string;
@@ -46,6 +47,25 @@ type FuelRecordSource = Omit<BackupFuelRecord, 'date' | 'createdAt' | 'updatedAt
 export type BackupTransactionHost = {
     $transaction<T>(callback: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T>;
 };
+
+export type BackupExportHost = {
+    vehicle: {
+        findMany(args: { orderBy: { createdAt: 'asc' }; take: number }): Promise<VehicleSource[]>;
+    };
+    fuelRecord: {
+        findMany(args: { where: { vehicleId: string }; orderBy: { mileage: 'asc' } }): Promise<FuelRecordSource[]>;
+    };
+};
+
+export class BackupExportError extends Error {
+    readonly code: 'NO_VEHICLE' | 'MULTIPLE_VEHICLES';
+
+    constructor(code: 'NO_VEHICLE' | 'MULTIPLE_VEHICLES', message: string) {
+        super(message);
+        this.name = 'BackupExportError';
+        this.code = code;
+    }
+}
 
 const object = (value: unknown, label: string): Record<string, unknown> => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -101,6 +121,24 @@ export function createBackupPayload(
     };
 }
 
+export async function loadBackupPayload(database: BackupExportHost, exportedAt: Date = new Date()) {
+    const vehicles = await database.vehicle.findMany({ orderBy: { createdAt: 'asc' }, take: 2 });
+    if (vehicles.length === 0) throw new BackupExportError('NO_VEHICLE', '暂无车辆数据可导出');
+    if (vehicles.length > 1) {
+        throw new BackupExportError(
+            'MULTIPLE_VEHICLES',
+            '检测到旧版多车辆数据。为避免生成不完整备份，请先处理为单车辆数据后再导出。',
+        );
+    }
+
+    const vehicle = vehicles[0];
+    const fuelRecords = await database.fuelRecord.findMany({
+        where: { vehicleId: vehicle.id },
+        orderBy: { mileage: 'asc' },
+    });
+    return createBackupPayload(vehicle, fuelRecords, exportedAt);
+}
+
 export function parseBackupPayload(input: unknown): FuelBackup {
     const root = object(input, '备份文件');
     if (root.schemaVersion !== BACKUP_SCHEMA_VERSION) {
@@ -136,14 +174,24 @@ export function parseBackupPayload(input: unknown): FuelBackup {
             throw new Error(`第 ${index + 1} 条加油站格式无效`);
         }
 
+        const liters = positiveNumber(raw.liters, `第 ${index + 1} 条升数`);
+        const price = positiveNumber(raw.price, `第 ${index + 1} 条金额`);
+        const unitPrice = positiveNumber(raw.unitPrice, `第 ${index + 1} 条油价`);
+        const expectedLiters = price / unitPrice;
+        if (Math.abs(liters - expectedLiters) > BACKUP_LITERS_TOLERANCE + 1e-9) {
+            throw new Error(
+                `第 ${index + 1} 条加油升数与金额、油价不一致（应约为 ${expectedLiters.toFixed(2)} L）`,
+            );
+        }
+
         return {
             id,
             vehicleId,
             date: isoDate(raw.date, `第 ${index + 1} 条加油日期`),
             mileage,
-            liters: positiveNumber(raw.liters, `第 ${index + 1} 条升数`),
-            price: positiveNumber(raw.price, `第 ${index + 1} 条金额`),
-            unitPrice: positiveNumber(raw.unitPrice, `第 ${index + 1} 条油价`),
+            liters,
+            price,
+            unitPrice,
             fullTank: raw.fullTank,
             station: typeof raw.station === 'string' ? raw.station : null,
             createdAt: isoDate(raw.createdAt, `第 ${index + 1} 条创建时间`),
