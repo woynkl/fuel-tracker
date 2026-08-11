@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { calculateLiters } from '@/lib/fuel';
+import { isJsonRequest, requireApiSession, validateSameOrigin } from '@/lib/auth';
 
 export async function GET(request: Request) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+
     const { searchParams } = new URL(request.url);
     const vehicleId = searchParams.get('vehicleId');
 
@@ -22,6 +26,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+    if (!validateSameOrigin(request)) {
+        return NextResponse.json({ error: '不允许跨站写入' }, { status: 403 });
+    }
+    if (!isJsonRequest(request)) {
+        return NextResponse.json({ error: 'Content-Type 必须是 application/json' }, { status: 415 });
+    }
+
     try {
         const body = await request.json();
         const mileage = Number(body.mileage);

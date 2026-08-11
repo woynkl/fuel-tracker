@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts src/lib/auth.test.ts src/lib/auth.integration.test.ts",
+    "auth:generate": "node --experimental-strip-types scripts/generate-auth-secrets.mjs"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
