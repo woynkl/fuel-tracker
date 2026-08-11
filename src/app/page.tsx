@@ -1,14 +1,20 @@
-import { VehicleList } from '@/components/VehicleList';
-import { HomeHeader } from '@/components/HomeHeader';
+import { DashboardClient } from '@/components/DashboardClient';
+import { prisma } from '@/lib/db';
 
-export default function Home() {
-  return (
-    <main className="layout-container py-8">
-      <HomeHeader />
+export const dynamic = 'force-dynamic';
 
-      <section>
-        <VehicleList />
-      </section>
-    </main>
-  );
+export default async function Home() {
+  let vehicle = await prisma.vehicle.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (!vehicle) {
+    vehicle = await prisma.vehicle.create({
+      data: { name: '我的车', type: 'car', odometer: 0 },
+    });
+  }
+
+  const records = await prisma.fuelRecord.findMany({
+    where: { vehicleId: vehicle.id },
+    orderBy: [{ mileage: 'desc' }, { date: 'desc' }],
+  });
+
+  return <DashboardClient vehicle={vehicle} initialRecords={records} />;
 }

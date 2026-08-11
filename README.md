@@ -1,98 +1,48 @@
-# 🚗 燃油与保养追踪器 (Fuel & Maintenance Tracker)
+# 个人油耗记录
 
-[中文](README.md) | [日本語](README_JA.md) | [English](README_EN.md)
+这是一个面向个人单车使用的手机油耗记录 MVP，基于 [`jyh9521/fuel-tracker`](https://github.com/jyh9521/fuel-tracker) 修改。
 
-<p align="center">
-  <img src="public/fuel-tracker.jpg" width="100%" />
-</p>
+每次加油只需录入：
 
-一个现代化的 Web 应用程序，用于管理您的车辆、追踪燃油消耗以及预测保养需求。
+- 当前表显里程
+- 实际支付金额
+- 当前每升油价
+- 日期与是否加满
 
-## 📸 应用截图
+应用会自动计算加油升数、行驶距离、真实油耗（L/100km）、每公里费用和百公里费用。数据保存在本地 SQLite 数据库中，无需账号；应用保留 PWA 能力，可从手机浏览器添加到主屏幕。
 
-<p align="center">
-  <img src="public/screenshot1.jpg" width="22%" />
-  <img src="public/screenshot2.jpg" width="22%" />
-  <img src="public/screenshot3.jpg" width="22%" />
-  <img src="public/screenshot4.jpg" width="22%" />
-</p>
+## 油耗规则
 
-## 📱 添加到手机主屏幕
+第一条加满记录只作为计算基准，不计入平均油耗。完整周期必须从一条“加满”记录开始，到下一条“加满”记录结束；期间的未加满记录会累加到该周期：
 
-您可以像原生 App 一样在手机上使用本应用：
+```text
+加油升数 = 支付金额 / 每升油价
+周期油耗 = 周期内加油升数 / 周期行驶距离 × 100
+每公里费用 = 周期内加油金额 / 周期行驶距离
+百公里费用 = 每公里费用 × 100
+```
 
-*   **Android (Chrome)**: 点击右上角菜单 (⋮) -> 选择 **“添加到主屏幕”**。
-*   **iOS (Safari)**: 点击底部 **分享** 按钮 (方框带箭头) -> 向下滑动选择 **“添加到主屏幕”**。
-
-## ✨ 主要功能
-
-*   **多车辆管理**：支持添加多辆车，涵盖汽车、摩托车和三轮车等多种类型。
-*   **燃油记录**：轻松记录加油详情（里程、升数、价格、是否加满）。
-*   **智能统计**：自动计算平均油耗 (L/100km)、每公里成本和总行驶里程。
-*   **保养预测**：基于您的驾驶习惯，智能预测下一次保养日期。
-*   **加油站查找**：集成地图功能，快速查找附近的加油站。
-*   **多语言支持**：原生支持中文、日语和英语。
-*   **移动端适配**：响应式设计，完美适配手机和桌面设备 (Material Design 3)。
-
-## 🛠️ 技术栈
-
-*   **框架**: [Next.js 16](https://nextjs.org/) (App Router)
-*   **数据库**: [Prisma](https://www.prisma.io/) (SQLite)
-*   **样式**: [TailwindCSS](https://tailwindcss.com/) + CSS Modules (Material Design 3 风格)
-*   **地图**: [Leaflet](https://leafletjs.com/) + OpenStreetMap
-*   **部署**: Docker 支持
-
-## 🚀 快速开始
-
-### 本地开发
-
-1.  **克隆仓库**
-    ```bash
-    git clone https://github.com/yourusername/fuel-maintenance-tracker.git
-    cd fuel-maintenance-tracker
-    ```
-
-2.  **安装依赖**
-    ```bash
-    npm install
-    ```
-
-3.  **初始化数据库**
-    ```bash
-    npx prisma migrate dev
-    ```
-
-4.  **启动开发服务器**
-    ```bash
-    npm run dev
-    ```
-    访问 `http://localhost:3000`。
-
-### 🐳 Docker 部署
-
-我们提供了详细的 [Docker 部署指南](DEPLOY.md)。
-
-简易命令：
+## 本地开发
 
 ```bash
-docker build -t fuel-tracker .
-docker run -d -p 9521:9521 -v ./data:/app/prisma/db fuel-tracker
+npm install
+set DATABASE_URL=file:./dev.db
+npx prisma generate
+npx prisma migrate dev
+npm test
+npm run lint
+npm run build
 ```
 
-## 📂 项目结构
+PowerShell 可使用 `$env:DATABASE_URL='file:./dev.db'` 设置数据库地址。
 
-```
-src/
-├── app/              # Next.js App Router 页面
-├── components/       # React UI 组件
-├── lib/              # 工具函数 (计算逻辑, 数据库, i18n)
-└── ...
-```
+## 技术栈
 
-## 🤝 贡献
+- Next.js + TypeScript
+- Prisma + SQLite
+- 轻量 Material 风格移动端 UI
+- Web App Manifest / PWA 主屏幕支持
 
-欢迎提交 Pull Request 或 Issue！
+## License
 
-## 📄 许可证
-
-MIT License
+本项目沿用原项目的 MIT License 与原作者版权。此仓库是基于 `jyh9521/fuel-tracker` 修改的个人 fork。
