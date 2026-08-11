@@ -42,9 +42,12 @@ export function DashboardClient({ vehicle, initialRecords }: { vehicle: Vehicle;
                     <h1>{vehicle.name}</h1>
                     <p className="text-muted">当前表显 {vehicle.odometer.toLocaleString('zh-CN')} km</p>
                 </div>
-                <Button className="add-button" onClick={() => router.push(`/vehicle/${vehicle.id}/add-fuel`)}>
-                    ＋ 记录加油
-                </Button>
+                <div className="header-actions">
+                    <Button variant="ghost" onClick={() => router.push('/settings/data')}>数据管理</Button>
+                    <Button className="add-button" onClick={() => router.push(`/vehicle/${vehicle.id}/add-fuel`)}>
+                        ＋ 记录加油
+                    </Button>
+                </div>
             </header>
 
             <section className="hero-card" aria-label="平均油耗">
