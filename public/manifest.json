@@ -1,6 +1,7 @@
 {
-    "name": "Fuel & Maintenance Tracker",
-    "short_name": "FuelTracker",
+    "name": "油耗记录",
+    "short_name": "油耗",
+    "description": "简单记录每次加油和车辆真实油耗",
     "icons": [
         {
             "src": "/icon.png",
@@ -8,8 +9,8 @@
             "type": "image/png"
         }
     ],
-    "theme_color": "#0f172a",
-    "background_color": "#0f172a",
+    "theme_color": "#6750a4",
+    "background_color": "#fffbfe",
     "display": "standalone",
     "orientation": "portrait",
     "start_url": "/"

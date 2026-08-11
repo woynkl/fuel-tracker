@@ -13,17 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vehicle Tracker",
-  description: "Track fuel and maintenance",
+  title: "油耗记录",
+  description: "简单记录每次加油和车辆真实油耗",
   manifest: "/manifest.json",
   icons: {
     icon: '/icon.png',
-    apple: '/icon.png', // 适用于 iOS 主屏幕
+    apple: '/icon.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Vehicle Tracker",
+    title: "油耗记录",
   },
   formatDetection: {
     telephone: false,
@@ -37,23 +37,15 @@ export const viewport = {
   userScalable: false,
 };
 
-import { I18nProvider } from '@/lib/i18n';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <I18nProvider>
-          <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999 }}>
-            <LanguageSwitcher />
-          </div>
-          {children}
-        </I18nProvider>
+        {children}
       </body>
     </html>
   );
