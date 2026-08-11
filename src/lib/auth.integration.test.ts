@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import test, { after, before } from 'node:test';
 
 const password = 'mobile-qa-password';
-const passwordHash = 'scrypt$32768$8$1$MDEyMzQ1Njc4OWFiY2RlZg$2DRkJnDqH8ilaGhfWk0x54MDlXL2O62Wwg7Wt4ALysw';
+const passwordHash = 'scrypt:32768:8:1:MDEyMzQ1Njc4OWFiY2RlZg:2DRkJnDqH8ilaGhfWk0x54MDlXL2O62Wwg7Wt4ALysw';
 const sessionSecret = 'integration-test-session-secret-at-least-32-bytes';
 
 let app: ChildProcessWithoutNullStreams;

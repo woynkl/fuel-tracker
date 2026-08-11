@@ -71,13 +71,13 @@ export async function hashPassword(password: string, salt = randomBytes(16)) {
         DEFAULT_SCRYPT_PARALLELIZATION,
         encode(salt),
         encode(derived),
-    ].join('$');
+    ].join(':');
 }
 
 export async function verifyPassword(password: string, encodedHash?: string) {
     if (Buffer.byteLength(password, 'utf8') > 1024) return false;
     const storedHash = encodedHash ?? requiredEnvironment('APP_PASSWORD_HASH');
-    const [algorithm, costValue, blockSizeValue, parallelizationValue, saltValue, hashValue, extra] = storedHash.split('$');
+    const [algorithm, costValue, blockSizeValue, parallelizationValue, saltValue, hashValue, extra] = storedHash.split(':');
     if (algorithm !== 'scrypt' || !costValue || !blockSizeValue || !parallelizationValue || !saltValue || !hashValue || extra) {
         return false;
     }

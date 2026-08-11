@@ -2,6 +2,9 @@
   "name": "fuel-tracker",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.6.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -18,7 +21,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

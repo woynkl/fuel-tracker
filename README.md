@@ -24,13 +24,15 @@
 
 ## 本地开发
 
+需要 Node.js 22.6 或更高版本（Docker 镜像使用 Node.js 22）。
+
 先生成密码 hash 和 session 签名 secret：
 
 ```bash
 npm run auth:generate
 ```
 
-将命令输出的 `APP_PASSWORD_HASH` 和 `SESSION_SECRET` 保存到本地 `.env` 或部署平台环境变量。明文密码不会写入源码或数据库，实际 hash、secret 和 `.env` 文件都不应提交到 git；变量格式可参考 `.env.example`。
+将命令输出的 `APP_PASSWORD_HASH` 和 `SESSION_SECRET` 原样保存到本地 `.env`、`.env.local`、Docker environment 或部署平台环境变量，无需手工转义。明文密码不会写入源码或数据库，实际 hash、secret 和 `.env` 文件都不应提交到 git；变量格式可参考 `.env.example`。
 
 ```bash
 npm install

@@ -24,6 +24,13 @@ test('正确密码可以登录并创建可验证的 session', async () => {
     assert.equal(verifySession(token, { secret: sessionSecret, now }), true);
 });
 
+test('生成的密码 hash 可直接用于 .env 且能再次验证', async () => {
+    const generatedHash = await hashPassword(password);
+    assert.equal(generatedHash.includes('$'), false);
+    assert.match(generatedHash, /^scrypt:32768:8:1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/);
+    assert.equal(await verifyPassword(password, generatedHash), true);
+});
+
 test('错误密码不能登录', async () => {
     assert.equal(await verifyPassword('wrong password', passwordHash), false);
 });
