@@ -3,84 +3,145 @@ export type FuelRecord = {
     mileage: number;
     liters: number;
     price: number;
+    unitPrice: number;
     fullTank: boolean;
-    date: Date;
+    date: Date | string;
+};
+
+export type IntervalConsumption = {
+    startMileage: number;
+    endMileage: number;
+    distance: number;
+    liters: number;
+    cost: number;
+    consumption: number;
+    costPerKm: number;
+    costPer100Km: number;
 };
 
 export type ConsumptionStats = {
+    recordCount: number;
     totalDistance: number;
     totalFuel: number;
     totalCost: number;
-    averageConsumption: number; // L/100km (每100公里升数)
-    averageCostPerKm: number;
-    lastConsumption: number | null; // L/100km (最近一次加油)
+    totalPaid: number;
+    averageConsumption: number | null;
+    averageCostPerKm: number | null;
+    averageCostPer100Km: number | null;
+    lastDistance: number | null;
+    lastLiters: number | null;
+    lastConsumption: number | null;
+    lastCostPerKm: number | null;
+    lastCostPer100Km: number | null;
 };
 
-export function calculateConsumption(records: FuelRecord[]): ConsumptionStats {
-    if (records.length < 2) {
-        return {
-            totalDistance: 0,
-            totalFuel: 0,
-            totalCost: 0,
-            averageConsumption: 0,
-            averageCostPerKm: 0,
-            lastConsumption: null,
-        };
-    }
+const isPositiveFinite = (value: number) => Number.isFinite(value) && value > 0;
 
-    // 按里程升序排序
+export function calculateLiters(price: number, unitPrice: number): number | null {
+    if (!isPositiveFinite(price) || !isPositiveFinite(unitPrice)) return null;
+    return price / unitPrice;
+}
+
+export function calculateDistance(startMileage: number, endMileage: number): number | null {
+    const distance = endMileage - startMileage;
+    return Number.isFinite(distance) && distance > 0 ? distance : null;
+}
+
+export function calculateIntervalConsumption(records: FuelRecord[]): IntervalConsumption | null {
     const sorted = [...records].sort((a, b) => a.mileage - b.mileage);
+    if (sorted.length < 2 || !sorted[0].fullTank || !sorted.at(-1)?.fullTank) return null;
 
-    let totalDistance = 0;
-    let totalFuel = 0;
-    let totalCost = 0;
+    const distance = calculateDistance(sorted[0].mileage, sorted.at(-1)!.mileage);
+    if (distance === null) return null;
 
-    // 为了准确性，我们只计算满油记录之间的油耗，
-    // 但作为简单的近似计算：
-    // 从第二条记录开始遍历。
-    // 距离 = 当前里程 - 上次里程
-    // 油量 = 当前加油量（覆盖该距离所需的燃油）
-    // 注意：这假设当前加油量是为了补充之前行驶消耗的油量。
-    // 标准方法：加满 -> 行驶 -> 加满。
-    // 第二次加满的油量 = 第一次和第二次之间距离的消耗量。
-
-    for (let i = 1; i < sorted.length; i++) {
-        const current = sorted[i];
-        const prev = sorted[i - 1];
-
-        // 简单逻辑：假设所有都是有效加油。
-        // 理想情况下应该处理非满油情况，但对于 MVP 版本：
-        const dist = current.mileage - prev.mileage;
-
-        if (dist > 0) {
-            totalDistance += dist;
-            totalFuel += current.liters;
-            totalCost += current.price; // 价格是总支付金额？还是每升单价？
-            // Schema 中有 "price"，假设是单次加油的总金额。
-        }
-    }
-
-    // 最近一次油耗（最新片段）
-    const lastRecord = sorted[sorted.length - 1];
-    const secondLast = sorted[sorted.length - 2];
-    let lastConsumption = null;
-
-    if (lastRecord.fullTank && secondLast) {
-        const dist = lastRecord.mileage - secondLast.mileage;
-        if (dist > 0) {
-            lastConsumption = (lastRecord.liters / dist) * 100;
-        }
-    }
-
-    const averageConsumption = totalDistance > 0 ? (totalFuel / totalDistance) * 100 : 0;
-    const averageCostPerKm = totalDistance > 0 ? totalCost / totalDistance : 0;
+    const replenishments = sorted.slice(1);
+    const liters = replenishments.reduce((sum, record) => sum + record.liters, 0);
+    const cost = replenishments.reduce((sum, record) => sum + record.price, 0);
+    if (!Number.isFinite(liters) || liters <= 0 || !Number.isFinite(cost) || cost < 0) return null;
 
     return {
+        startMileage: sorted[0].mileage,
+        endMileage: sorted.at(-1)!.mileage,
+        distance,
+        liters,
+        cost,
+        consumption: liters / distance * 100,
+        costPerKm: cost / distance,
+        costPer100Km: cost / distance * 100,
+    };
+}
+
+export function calculateCostPerKm(cost: number, distance: number): number | null {
+    return isPositiveFinite(cost) && isPositiveFinite(distance) ? cost / distance : null;
+}
+
+export function calculateCostPer100Km(cost: number, distance: number): number | null {
+    const perKm = calculateCostPerKm(cost, distance);
+    return perKm === null ? null : perKm * 100;
+}
+
+export function calculateConsumption(records: FuelRecord[]): ConsumptionStats {
+    const sorted = [...records]
+        .filter(record => Number.isFinite(record.mileage) && isPositiveFinite(record.liters) && isPositiveFinite(record.price))
+        .sort((a, b) => a.mileage - b.mileage);
+    const latest = sorted.at(-1);
+    const previous = sorted.at(-2);
+    const lastDistance = latest && previous ? calculateDistance(previous.mileage, latest.mileage) : null;
+
+    const completedIntervals: IntervalConsumption[] = [];
+    let baselineIndex: number | null = null;
+    for (let index = 0; index < sorted.length; index += 1) {
+        if (!sorted[index].fullTank) continue;
+        if (baselineIndex !== null) {
+            const interval = calculateIntervalConsumption(sorted.slice(baselineIndex, index + 1));
+            if (interval) completedIntervals.push(interval);
+        }
+        baselineIndex = index;
+    }
+
+    const totalDistance = completedIntervals.reduce((sum, interval) => sum + interval.distance, 0);
+    const totalFuel = completedIntervals.reduce((sum, interval) => sum + interval.liters, 0);
+    const totalCost = completedIntervals.reduce((sum, interval) => sum + interval.cost, 0);
+    const lastInterval = latest?.fullTank ? completedIntervals.at(-1) ?? null : null;
+
+    return {
+        recordCount: sorted.length,
         totalDistance,
         totalFuel,
         totalCost,
-        averageConsumption: parseFloat(averageConsumption.toFixed(2)),
-        averageCostPerKm: parseFloat(averageCostPerKm.toFixed(2)),
-        lastConsumption: lastConsumption ? parseFloat(lastConsumption.toFixed(2)) : null,
+        totalPaid: sorted.reduce((sum, record) => sum + record.price, 0),
+        averageConsumption: totalDistance > 0 ? totalFuel / totalDistance * 100 : null,
+        averageCostPerKm: calculateCostPerKm(totalCost, totalDistance),
+        averageCostPer100Km: calculateCostPer100Km(totalCost, totalDistance),
+        lastDistance,
+        lastLiters: latest?.liters ?? null,
+        lastConsumption: lastInterval?.consumption ?? null,
+        lastCostPerKm: lastInterval?.costPerKm ?? null,
+        lastCostPer100Km: lastInterval?.costPer100Km ?? null,
     };
+}
+
+export type RecordMetrics = {
+    distance: number | null;
+    consumption: number | null;
+};
+
+export function calculateRecordMetrics(records: FuelRecord[]): Map<string, RecordMetrics> {
+    const sorted = [...records].sort((a, b) => a.mileage - b.mileage);
+    const result = new Map<string, RecordMetrics>();
+    let fullTankIndex: number | null = null;
+
+    sorted.forEach((record, index) => {
+        const distance = index > 0 ? calculateDistance(sorted[index - 1].mileage, record.mileage) : null;
+        let consumption: number | null = null;
+        if (record.fullTank) {
+            if (fullTankIndex !== null) {
+                consumption = calculateIntervalConsumption(sorted.slice(fullTankIndex, index + 1))?.consumption ?? null;
+            }
+            fullTankIndex = index;
+        }
+        result.set(record.id, { distance, consumption });
+    });
+
+    return result;
 }

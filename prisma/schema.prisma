@@ -31,6 +31,7 @@ model FuelRecord {
   mileage   Int      // Current odometer reading
   liters    Float
   price     Float
+  unitPrice Float    @default(0)
   fullTank  Boolean  @default(true)
   station   String?  // Name of gas station
   createdAt DateTime @default(now())
