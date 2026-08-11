@@ -69,3 +69,15 @@ test('当前未加满时不显示准确周期油耗', () => {
     assert.equal(result.lastDistance, 300);
     assert.equal(result.lastConsumption, null);
 });
+
+test('累计行驶包含最新未加满记录，平均油耗仍只使用完整周期', () => {
+    const result = calculateConsumption([
+        record('a', 10000, 50),
+        record('b', 10500, 45),
+        record('c', 10800, 20, false),
+    ]);
+
+    assert.equal(result.totalDistance, 800);
+    assert.equal(result.averageConsumption, 9);
+    assert.equal(result.lastConsumption, null);
+});

@@ -99,10 +99,13 @@ export function calculateConsumption(records: FuelRecord[]): ConsumptionStats {
         baselineIndex = index;
     }
 
-    const totalDistance = completedIntervals.reduce((sum, interval) => sum + interval.distance, 0);
+    const completedDistance = completedIntervals.reduce((sum, interval) => sum + interval.distance, 0);
     const totalFuel = completedIntervals.reduce((sum, interval) => sum + interval.liters, 0);
     const totalCost = completedIntervals.reduce((sum, interval) => sum + interval.cost, 0);
     const lastInterval = latest?.fullTank ? completedIntervals.at(-1) ?? null : null;
+    const totalDistance = sorted.length >= 2
+        ? calculateDistance(sorted[0].mileage, sorted.at(-1)!.mileage) ?? 0
+        : 0;
 
     return {
         recordCount: sorted.length,
@@ -110,9 +113,9 @@ export function calculateConsumption(records: FuelRecord[]): ConsumptionStats {
         totalFuel,
         totalCost,
         totalPaid: sorted.reduce((sum, record) => sum + record.price, 0),
-        averageConsumption: totalDistance > 0 ? totalFuel / totalDistance * 100 : null,
-        averageCostPerKm: calculateCostPerKm(totalCost, totalDistance),
-        averageCostPer100Km: calculateCostPer100Km(totalCost, totalDistance),
+        averageConsumption: completedDistance > 0 ? totalFuel / completedDistance * 100 : null,
+        averageCostPerKm: calculateCostPerKm(totalCost, completedDistance),
+        averageCostPer100Km: calculateCostPer100Km(totalCost, completedDistance),
         lastDistance,
         lastLiters: latest?.liters ?? null,
         lastConsumption: lastInterval?.consumption ?? null,
