@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
