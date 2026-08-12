@@ -112,5 +112,6 @@ test('Capacitor Android 身份、静态资源和存储边界保持稳定', () =>
         new URL('../../android/app/src/main/AndroidManifest.xml', import.meta.url),
         'utf8',
     );
+    assert.match(manifest, /android:allowBackup=["']false["']/);
     assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
 });
