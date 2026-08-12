@@ -28,13 +28,21 @@ npm run dev
 
 打开开发服务器显示的本地地址即可。无需数据库、环境变量或认证配置。
 
-Production build 检查：
+`npm run dev` 只用于本地开发。生成完全静态、无需 Node server 的生产产物：
 
 ```bash
 npm run build
 ```
 
-本阶段仍使用 Next.js 开发和构建流程；static export、Capacitor 和 Android APK 属于后续阶段。
+构建结果位于 `out/`，可由普通静态文件服务器提供，也可在后续阶段打包进本地 APP。生产运行不使用 `next start`，不需要 Node.js、数据库、环境变量或服务器 API。
+
+例如可在构建后临时预览：
+
+```bash
+python -m http.server 8000 --directory out
+```
+
+然后访问 `http://127.0.0.1:8000/`。Capacitor 和 Android APK 属于后续阶段，本阶段不包含。
 
 ## 技术栈
 

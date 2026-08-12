@@ -8,7 +8,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
     "lint": "eslint",
     "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts src/lib/calendar-date.test.ts src/lib/import-backup.test.ts src/lib/storage/indexeddb.test.ts src/lib/local-first.test.ts"
   },

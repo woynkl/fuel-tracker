@@ -26,7 +26,23 @@ npm run lint
 npm run dev
 ```
 
-No database or authentication environment variables are required. This phase still uses the normal Next.js development/build workflow; static export, Capacitor, and Android packaging are later phases.
+No database or authentication environment variables are required. `npm run dev` is for local development only.
+
+Generate the fully static production artifact:
+
+```bash
+npm run build
+```
+
+The result is written to `out/` and can be served by any ordinary static file server. Production does not use `next start` and requires no Node.js server, database, environment variables, or server API.
+
+For a temporary preview after building:
+
+```bash
+python -m http.server 8000 --directory out
+```
+
+Capacitor and Android APK packaging are later phases and are not included here.
 
 ## Stack
 
