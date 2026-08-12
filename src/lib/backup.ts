@@ -1,71 +1,9 @@
-import type { Prisma } from '@prisma/client';
+import type { BackupPayload, FuelRecord, Vehicle } from './domain/types';
+
+export type { BackupPayload, FuelRecord, Vehicle } from './domain/types';
 
 export const BACKUP_SCHEMA_VERSION = 1;
 export const BACKUP_LITERS_TOLERANCE = 0.01;
-
-export type BackupVehicle = {
-    id: string;
-    name: string;
-    type: string;
-    odometer: number;
-    createdAt: string;
-    updatedAt: string;
-};
-
-export type BackupFuelRecord = {
-    id: string;
-    vehicleId: string;
-    date: string;
-    mileage: number;
-    liters: number;
-    price: number;
-    unitPrice: number;
-    fullTank: boolean;
-    station: string | null;
-    createdAt: string;
-    updatedAt: string;
-};
-
-export type FuelBackup = {
-    schemaVersion: typeof BACKUP_SCHEMA_VERSION;
-    exportedAt: string;
-    vehicle: BackupVehicle;
-    fuelRecords: BackupFuelRecord[];
-};
-
-type DateValue = Date | string;
-type VehicleSource = Omit<BackupVehicle, 'createdAt' | 'updatedAt'> & {
-    createdAt: DateValue;
-    updatedAt: DateValue;
-};
-type FuelRecordSource = Omit<BackupFuelRecord, 'date' | 'createdAt' | 'updatedAt'> & {
-    date: DateValue;
-    createdAt: DateValue;
-    updatedAt: DateValue;
-};
-
-export type BackupTransactionHost = {
-    $transaction<T>(callback: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T>;
-};
-
-export type BackupExportHost = {
-    vehicle: {
-        findMany(args: { orderBy: { createdAt: 'asc' }; take: number }): Promise<VehicleSource[]>;
-    };
-    fuelRecord: {
-        findMany(args: { where: { vehicleId: string }; orderBy: { mileage: 'asc' } }): Promise<FuelRecordSource[]>;
-    };
-};
-
-export class BackupExportError extends Error {
-    readonly code: 'NO_VEHICLE' | 'MULTIPLE_VEHICLES';
-
-    constructor(code: 'NO_VEHICLE' | 'MULTIPLE_VEHICLES', message: string) {
-        super(message);
-        this.name = 'BackupExportError';
-        this.code = code;
-    }
-}
 
 const object = (value: unknown, label: string): Record<string, unknown> => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -100,10 +38,10 @@ const isoDate = (value: unknown, label: string): string => {
 };
 
 export function createBackupPayload(
-    vehicle: VehicleSource,
-    fuelRecords: FuelRecordSource[],
+    vehicle: Vehicle,
+    fuelRecords: FuelRecord[],
     exportedAt: Date = new Date(),
-): FuelBackup {
+): BackupPayload {
     return {
         schemaVersion: BACKUP_SCHEMA_VERSION,
         exportedAt: exportedAt.toISOString(),
@@ -121,32 +59,14 @@ export function createBackupPayload(
     };
 }
 
-export async function loadBackupPayload(database: BackupExportHost, exportedAt: Date = new Date()) {
-    const vehicles = await database.vehicle.findMany({ orderBy: { createdAt: 'asc' }, take: 2 });
-    if (vehicles.length === 0) throw new BackupExportError('NO_VEHICLE', '暂无车辆数据可导出');
-    if (vehicles.length > 1) {
-        throw new BackupExportError(
-            'MULTIPLE_VEHICLES',
-            '检测到旧版多车辆数据。为避免生成不完整备份，请先处理为单车辆数据后再导出。',
-        );
-    }
-
-    const vehicle = vehicles[0];
-    const fuelRecords = await database.fuelRecord.findMany({
-        where: { vehicleId: vehicle.id },
-        orderBy: { mileage: 'asc' },
-    });
-    return createBackupPayload(vehicle, fuelRecords, exportedAt);
-}
-
-export function parseBackupPayload(input: unknown): FuelBackup {
+export function parseBackupPayload(input: unknown): BackupPayload {
     const root = object(input, '备份文件');
     if (root.schemaVersion !== BACKUP_SCHEMA_VERSION) {
         throw new Error(`不支持的备份版本：${String(root.schemaVersion)}`);
     }
 
     const rawVehicle = object(root.vehicle, '车辆数据');
-    const vehicle: BackupVehicle = {
+    const vehicle: Vehicle<string> = {
         id: string(rawVehicle.id, '车辆 ID'),
         name: string(rawVehicle.name, '车辆名称'),
         type: string(rawVehicle.type, '车辆类型'),
@@ -158,7 +78,7 @@ export function parseBackupPayload(input: unknown): FuelBackup {
     if (!Array.isArray(root.fuelRecords)) throw new Error('加油记录格式无效');
     const ids = new Set<string>();
     const mileages = new Set<number>();
-    const fuelRecords = root.fuelRecords.map((value, index): BackupFuelRecord => {
+    const fuelRecords = root.fuelRecords.map((value, index): FuelRecord<string> => {
         const raw = object(value, `第 ${index + 1} 条加油记录`);
         const id = string(raw.id, `第 ${index + 1} 条记录 ID`);
         const vehicleId = string(raw.vehicleId, `第 ${index + 1} 条车辆 ID`);
@@ -205,37 +125,4 @@ export function parseBackupPayload(input: unknown): FuelBackup {
         vehicle,
         fuelRecords,
     };
-}
-
-export async function restoreBackup(database: BackupTransactionHost, input: unknown) {
-    const backup = parseBackupPayload(input);
-    const odometer = backup.fuelRecords.reduce((maximum, record) => Math.max(maximum, record.mileage), 0);
-
-    return database.$transaction(async transaction => {
-        await transaction.fuelRecord.deleteMany();
-        await transaction.maintenanceConfig.deleteMany();
-        await transaction.vehicle.deleteMany();
-
-        await transaction.vehicle.create({
-            data: {
-                ...backup.vehicle,
-                odometer,
-                createdAt: new Date(backup.vehicle.createdAt),
-                updatedAt: new Date(backup.vehicle.updatedAt),
-            },
-        });
-
-        for (const record of backup.fuelRecords) {
-            await transaction.fuelRecord.create({
-                data: {
-                    ...record,
-                    date: new Date(record.date),
-                    createdAt: new Date(record.createdAt),
-                    updatedAt: new Date(record.updatedAt),
-                },
-            });
-        }
-
-        return { importedRecords: backup.fuelRecords.length, odometer };
-    });
 }

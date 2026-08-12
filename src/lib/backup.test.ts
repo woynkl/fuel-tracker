@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import type { Prisma } from '@prisma/client';
 import {
     BACKUP_SCHEMA_VERSION,
     createBackupPayload,
+    parseBackupPayload,
+} from './backup.ts';
+import {
     loadBackupPayload,
     restoreBackup,
+    type BackupTransactionClient,
     type BackupExportHost,
     type BackupTransactionHost,
-} from './backup.ts';
+} from './backup-prisma.ts';
 
 const timestamp = new Date('2026-08-11T12:00:00.000Z');
 const vehicle = {
@@ -41,7 +45,7 @@ type FakeState = {
 function fakeDatabase(initial: FakeState, failAtRecord?: number) {
     let state = structuredClone(initial);
     const database: BackupTransactionHost = {
-        async $transaction<T>(callback: (transaction: Prisma.TransactionClient) => Promise<T>) {
+        async $transaction<T>(callback: (transaction: BackupTransactionClient) => Promise<T>) {
             const working = structuredClone(state);
             let createdRecords = 0;
             const transaction = {
@@ -64,7 +68,7 @@ function fakeDatabase(initial: FakeState, failAtRecord?: number) {
                         return data;
                     },
                 },
-            } as unknown as Prisma.TransactionClient;
+            };
 
             const result = await callback(transaction);
             state = working;
@@ -147,4 +151,44 @@ test('检测到旧版多车辆数据时拒绝导出，不读取或生成不完�
 
     await assert.rejects(() => loadBackupPayload(database, timestamp), /检测到旧版多车辆数据/);
     assert.equal(fuelRecordQueries, 0);
+});
+
+test('schemaVersion 1 备份 JSON round trip 保持兼容', () => {
+    const backup = createBackupPayload(vehicle, records, timestamp);
+    const parsed = parseBackupPayload(JSON.parse(JSON.stringify(backup)));
+
+    assert.deepEqual(parsed, backup);
+});
+
+test('无效备份版本和缺失字段会被拒绝', () => {
+    assert.throws(() => parseBackupPayload({ schemaVersion: 2 }), /不支持的备份版本/);
+    assert.throws(
+        () => parseBackupPayload({ schemaVersion: 1, exportedAt: timestamp.toISOString(), vehicle: {}, fuelRecords: [] }),
+        /车辆 ID 格式无效/,
+    );
+});
+
+test('重复记录 ID 或里程会被拒绝', () => {
+    const duplicateId = createBackupPayload(vehicle, [records[0], { ...records[1], id: records[0].id }], timestamp);
+    const duplicateMileage = createBackupPayload(
+        vehicle,
+        [records[0], { ...records[1], mileage: records[0].mileage }],
+        timestamp,
+    );
+
+    assert.throws(() => parseBackupPayload(duplicateId), /加油记录 ID 重复/);
+    assert.throws(() => parseBackupPayload(duplicateMileage), /加油里程重复/);
+});
+
+test('记录必须属于备份中的车辆', () => {
+    const backup = createBackupPayload(vehicle, [{ ...records[0], vehicleId: 'another-vehicle' }], timestamp);
+
+    assert.throws(() => parseBackupPayload(backup), /记录不属于备份车辆/);
+});
+
+test('Domain、fuel 与纯 backup 模块不依赖 Prisma client', () => {
+    for (const relativePath of ['./domain/types.ts', './fuel.ts', './backup.ts']) {
+        const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+        assert.doesNotMatch(source, /@prisma\/client|\bPrisma\b/, relativePath);
+    }
 });
