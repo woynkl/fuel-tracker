@@ -3,12 +3,36 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { getLocalRepository } from '@/lib/storage/client';
 
 export default function DataSettingsPage() {
     const router = useRouter();
     const fileInput = useRef<HTMLInputElement>(null);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [importing, setImporting] = useState(false);
+    const [exporting, setExporting] = useState(false);
+
+    const exportBackup = async () => {
+        setStatus(null);
+        setExporting(true);
+        try {
+            const backup = await getLocalRepository().exportData();
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fuel-backup-${backup.exportedAt.slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            setStatus({ type: 'success', message: `已导出 ${backup.fuelRecords.length} 条加油记录` });
+        } catch (error) {
+            setStatus({ type: 'error', message: error instanceof Error ? error.message : '导出失败' });
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const importBackup = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -36,19 +60,18 @@ export default function DataSettingsPage() {
 
         setImporting(true);
         try {
-            const response = await fetch('/api/backup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(backup),
-            });
-            const result = await response.json().catch(() => null);
-            if (!response.ok) throw new Error(result?.error ?? '导入失败，请检查备份文件');
+            const repository = getLocalRepository();
+            const result = await repository.importData(backup);
+            const [vehicle, records] = await Promise.all([
+                repository.getVehicle(),
+                repository.listFuelRecords(),
+            ]);
+            if (!vehicle || records.length !== result.importedRecords) throw new Error('导入后数据校验失败');
 
             setStatus({
                 type: 'success',
                 message: `导入完成：${result.importedRecords} 条加油记录，当前里程 ${result.odometer} km`,
             });
-            router.refresh();
         } catch (error) {
             setStatus({ type: 'error', message: error instanceof Error ? error.message : '导入失败' });
         } finally {
@@ -70,13 +93,15 @@ export default function DataSettingsPage() {
                         <h2>导出数据</h2>
                         <p>下载包含车辆、全部加油记录、版本和导出时间的 JSON 文件。</p>
                     </div>
-                    <a className="btn btn-primary data-link" href="/api/backup" download>导出数据</a>
+                    <Button disabled={exporting} onClick={() => void exportBackup()}>
+                        {exporting ? '导出中…' : '导出数据'}
+                    </Button>
                 </article>
 
                 <article className="data-action danger-action">
                     <div>
                         <h2>导入备份</h2>
-                        <p>导入会完整覆盖当前数据。服务器会先校验文件，再通过单个事务恢复。</p>
+                        <p>导入会完整覆盖当前设备数据。本地存储会先校验文件，再通过单个事务恢复。</p>
                     </div>
                     <input
                         ref={fileInput}
@@ -91,6 +116,7 @@ export default function DataSettingsPage() {
                 </article>
 
                 {status && <p className={`backup-status ${status.type}`} role="status">{status.message}</p>}
+                <p className="local-data-notice">数据只保存在当前设备。建议定期导出备份；卸载 APP 前必须先导出备份。</p>
             </section>
         </main>
     );

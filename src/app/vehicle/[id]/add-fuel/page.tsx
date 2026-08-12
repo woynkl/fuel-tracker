@@ -1,18 +1,15 @@
 "use client";
 
 import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AddFuelForm } from '@/components/AddFuelForm';
 import { Button } from '@/components/ui/Button';
 
 export default function AddFuelPage() {
     const router = useRouter();
-    const params = useParams();
-    const id = params.id as string;
 
     const handleSuccess = () => {
         router.push('/');
-        router.refresh();
     };
 
     const handleCancel = () => {
@@ -33,7 +30,6 @@ export default function AddFuelPage() {
 
             <div className="md-card form-card">
                 <AddFuelForm
-                    vehicleId={id}
                     onSuccess={handleSuccess}
                     onCancel={handleCancel}
                 />
