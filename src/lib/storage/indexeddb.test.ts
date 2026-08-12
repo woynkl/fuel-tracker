@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IDBFactory } from 'fake-indexeddb';
+import { parseBackupPayload } from '../backup.ts';
 import { calculateConsumption } from '../fuel.ts';
 import { IndexedDbRepository, LOCAL_DATABASE_NAME, LOCAL_DATABASE_VERSION } from './indexeddb.ts';
 import type { StoredFuelRecord } from './repository.ts';
@@ -58,6 +59,45 @@ test('添加记录时计算 liters、保持 mileage 顺序并同步 vehicle odom
     assert.equal(stats.lastDistance, 550);
     assert.ok(Math.abs(stats.lastConsumption! - 9.090909) < 0.000001);
     local.close();
+});
+
+test('saveVehicle 只更新 metadata，并保持 identity、odometer 与 record association 完整', async () => {
+    const factory = new IDBFactory();
+    const ids = ['vehicle-stable', 'record-1', 'record-2'];
+    let idIndex = 0;
+    let currentTime = new Date('2026-08-12T08:00:00.000Z');
+    const local = new IndexedDbRepository({
+        indexedDB: factory,
+        createId: () => ids[idIndex++],
+        now: () => currentTime,
+    });
+    const initialized = await local.initialize();
+    await local.addFuelRecord(firstFill);
+    await local.addFuelRecord({ ...firstFill, mileage: 10550 });
+    currentTime = new Date('2026-08-13T09:30:00.000Z');
+
+    const saved = await local.saveVehicle({ name: '通勤车', type: 'hatchback' });
+    const records = await local.listFuelRecords();
+
+    assert.equal(saved.name, '通勤车');
+    assert.equal(saved.type, 'hatchback');
+    assert.equal(saved.id, initialized.id);
+    assert.equal(saved.odometer, 10550);
+    assert.equal(saved.createdAt, initialized.createdAt);
+    assert.equal(saved.updatedAt, currentTime.toISOString());
+    assert.ok(records.every(record => record.vehicleId === saved.id));
+
+    const backup = await local.exportData();
+    assert.deepEqual(parseBackupPayload(backup), backup);
+    const target = new IndexedDbRepository({
+        indexedDB: new IDBFactory(),
+        createId: () => 'target-default',
+        now: () => currentTime,
+    });
+    await target.importData(backup);
+    assert.deepEqual(await target.exportData(), backup);
+    local.close();
+    target.close();
 });
 
 test('拒绝非法数值和不递增 mileage，失败不留下半完成写入', async () => {

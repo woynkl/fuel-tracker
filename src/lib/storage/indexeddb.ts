@@ -1,9 +1,9 @@
 import { createBackupPayload, parseBackupPayload } from '../backup.ts';
-import type { Vehicle } from '../domain/types';
 import type {
     AddFuelRecordInput,
     ImportResult,
     LocalRepository,
+    SaveVehicleInput,
     StoredFuelRecord,
     StoredVehicle,
 } from './repository';
@@ -41,17 +41,16 @@ const positiveNumber = (value: number, label: string) => {
     if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} 必须大于 0`);
 };
 
+const requiredString = (value: string, label: string) => {
+    if (typeof value !== 'string' || value.trim() === '') throw new Error(`${label} 不能为空`);
+    return value.trim();
+};
+
 const isoDate = (value: Date | string, label: string) => {
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) throw new Error(`${label} 格式无效`);
     return date.toISOString();
 };
-
-const normalizeVehicle = (vehicle: Vehicle): StoredVehicle => ({
-    ...vehicle,
-    createdAt: isoDate(vehicle.createdAt, '车辆创建时间'),
-    updatedAt: isoDate(vehicle.updatedAt, '车辆更新时间'),
-});
 
 export class IndexedDbRepository implements LocalRepository {
     private readonly databaseName: string;
@@ -133,16 +132,37 @@ export class IndexedDbRepository implements LocalRepository {
         return vehicles[0] ?? null;
     }
 
-    async saveVehicle(vehicle: Vehicle): Promise<StoredVehicle> {
-        const normalized = normalizeVehicle(vehicle);
+    async saveVehicle(input: SaveVehicleInput): Promise<StoredVehicle> {
+        const name = requiredString(input.name, '车辆名称');
+        const type = requiredString(input.type, '车辆类型');
+        await this.initialize();
         const database = await this.openDatabase();
-        const transaction = database.transaction(VEHICLE_STORE, 'readwrite');
+        const transaction = database.transaction([VEHICLE_STORE, FUEL_RECORDS_STORE], 'readwrite');
         const completed = transactionResult(transaction);
-        const store = transaction.objectStore(VEHICLE_STORE);
-        await requestResult(store.clear());
-        await requestResult(store.put(normalized));
+        const vehicles = transaction.objectStore(VEHICLE_STORE);
+        const existing = (await requestResult(
+            vehicles.getAll() as IDBRequest<StoredVehicle[]>,
+        ))[0];
+        if (!existing) {
+            transaction.abort();
+            await completed.catch(() => undefined);
+            throw new Error('当前车辆不存在');
+        }
+
+        const latest = await requestResult(
+            transaction.objectStore(FUEL_RECORDS_STORE).index(MILEAGE_INDEX)
+                .openCursor(null, 'prev') as IDBRequest<IDBCursorWithValue | null>,
+        );
+        const saved: StoredVehicle = {
+            ...existing,
+            name,
+            type,
+            odometer: latest ? (latest.value as StoredFuelRecord).mileage : 0,
+            updatedAt: this.now().toISOString(),
+        };
+        await requestResult(vehicles.put(saved));
         await completed;
-        return normalized;
+        return saved;
     }
 
     async listFuelRecords(): Promise<StoredFuelRecord[]> {

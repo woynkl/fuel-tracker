@@ -12,6 +12,11 @@ export type AddFuelRecordInput = {
     station?: string | null;
 };
 
+export type SaveVehicleInput = {
+    name: string;
+    type: string;
+};
+
 export type ImportResult = {
     importedRecords: number;
     odometer: number;
@@ -20,7 +25,7 @@ export type ImportResult = {
 export interface LocalRepository {
     initialize(): Promise<StoredVehicle>;
     getVehicle(): Promise<StoredVehicle | null>;
-    saveVehicle(vehicle: Vehicle): Promise<StoredVehicle>;
+    saveVehicle(input: SaveVehicleInput): Promise<StoredVehicle>;
     listFuelRecords(): Promise<StoredFuelRecord[]>;
     addFuelRecord(input: AddFuelRecordInput): Promise<StoredFuelRecord>;
     deleteFuelRecord(id: string): Promise<boolean>;
