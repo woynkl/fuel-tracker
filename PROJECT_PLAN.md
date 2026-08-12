@@ -731,10 +731,6 @@ refactor: move app to local-first storage
 PR #9
 feat: build local Android app
 
-```text
-feat: build local Android app
-```
-
 目标：
 
 - Static export
@@ -744,12 +740,13 @@ feat: build local Android app
 - 本地数据升级策略
 - 用户真机验收
 
-如果 PR #8 过大，可拆成：
+如果 PR #9 过大，可拆成：
 
-```text
-PR #8 static export
-PR #9 Android APK packaging
-```
+PR #9
+feat: enable static export
+
+PR #10
+feat: package Android APK
 
 但不为了拆 PR 而增加额外产品功能。
 
