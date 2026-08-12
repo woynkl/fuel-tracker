@@ -18,6 +18,13 @@ RUN \
   else echo "Lockfile not found." && exit 1; \
   fi
 
+# Install the exact runtime dependency set from package-lock.json. This includes
+# the pinned Prisma CLI used by the container entrypoint for offline migrations.
+FROM base AS prod-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
@@ -32,8 +39,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Set a dummy DATABASE_URL for build time (Prisma needs it to generate client)
 ENV DATABASE_URL="file:/app/prisma/db/dev.db"
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client with the locally installed, lockfile-pinned CLI.
+RUN ./node_modules/.bin/prisma generate
 
 RUN npm run build
 
@@ -65,9 +72,17 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Keep Next.js standalone output while making all production dependencies,
+# including the pinned Prisma CLI, explicit in the final image.
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+
 # Copy Prisma schema and migrations if needed for runtime
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+
+# Fail the image build if the local runtime CLI is missing or not the locked version.
+RUN test "$(node -p "require('./node_modules/prisma/package.json').version")" = "5.19.1" && \
+  ./node_modules/.bin/prisma --version
 
 # Ensure persistence directory exists and has correct permissions
 RUN mkdir -p /app/prisma/db && chown nextjs:nodejs /app/prisma/db

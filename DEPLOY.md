@@ -76,7 +76,9 @@ docker compose config
 docker compose up -d --build
 ```
 
-首次启动时，现有 entrypoint 会执行已提交 migration 的非交互式部署命令：
+生产镜像通过 `package-lock.json` 安装 production dependencies，并明确包含项目锁定的 Prisma CLI 5.19.1。镜像构建和容器启动都会检查本地 Prisma binary 与版本；启动过程不运行 `npm install`，也不通过 `npx` 从公网下载任何包，因此 APP 所在的内部网络可以在无公网访问的情况下执行 migration。
+
+首次启动时，entrypoint 使用镜像内的 `./node_modules/.bin/prisma` 执行已提交 migration 的非交互式部署命令：
 
 ```text
 prisma migrate deploy
