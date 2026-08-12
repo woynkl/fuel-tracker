@@ -1,22 +1,87 @@
-version: '3.9'
+name: fuel-tracker
 
 services:
   app:
-    container_name: fuel-tracker
     build:
       context: .
-      dockerfile: Dockerfile
-    image: fuel-tracker:latest
-    ports:
-      - "9521:9521"
-    environment:
-      - DATABASE_URL=file:/app/prisma/dev.db
-    volumes:
-      - ./prisma/dev.db:/app/prisma/dev.db
     restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-file:/app/prisma/db/dev.db}
+      APP_PASSWORD_HASH: ${APP_PASSWORD_HASH:?APP_PASSWORD_HASH must be set in .env.production}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env.production}
+    expose:
+      - "9521"
+    volumes:
+      - ./data:/app/prisma/db
     networks:
-      - fuel-net
+      - app-internal
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:9521/api/health')
+          .then(response => { if (!response.ok) process.exit(1) })
+          .catch(() => process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=fuel-tracker-internal"
+      - "traefik.http.services.fuel-app.loadbalancer.server.port=9521"
+
+      - "traefik.http.routers.fuel-app.rule=Host(`${APP_DOMAIN:?APP_DOMAIN must be set in .env.production}`)"
+      - "traefik.http.routers.fuel-app.entrypoints=websecure"
+      - "traefik.http.routers.fuel-app.tls=true"
+      - "traefik.http.routers.fuel-app.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.fuel-app.service=fuel-app"
+
+      - "traefik.http.routers.fuel-login.rule=Host(`${APP_DOMAIN:?APP_DOMAIN must be set in .env.production}`) && Path(`/api/auth/login`) && Method(`POST`)"
+      - "traefik.http.routers.fuel-login.priority=100"
+      - "traefik.http.routers.fuel-login.entrypoints=websecure"
+      - "traefik.http.routers.fuel-login.tls=true"
+      - "traefik.http.routers.fuel-login.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.fuel-login.service=fuel-app"
+      - "traefik.http.routers.fuel-login.middlewares=fuel-login-ratelimit"
+      - "traefik.http.middlewares.fuel-login-ratelimit.ratelimit.average=5"
+      - "traefik.http.middlewares.fuel-login-ratelimit.ratelimit.period=1m"
+      - "traefik.http.middlewares.fuel-login-ratelimit.ratelimit.burst=5"
+
+  traefik:
+    image: traefik:v3.7.1
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=fuel-tracker-internal"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL must be set in .env.production}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+    networks:
+      - app-internal
+      - traefik-public
+    security_opt:
+      - no-new-privileges:true
 
 networks:
-  fuel-net:
-    driver: bridge
+  app-internal:
+    name: fuel-tracker-internal
+    internal: true
+  traefik-public:
+    name: fuel-tracker-public

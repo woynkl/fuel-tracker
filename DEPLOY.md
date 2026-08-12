@@ -1,256 +1,226 @@
-# 🐳 Docker 部署指南
+# 个人油耗记录公网部署指南
 
-[中文](DEPLOY.md) | [日本語](DEPLOY_JA.md) | [English](DEPLOY_EN.md)
+本指南使用仓库内的 `Dockerfile` 构建 APP，并通过 Traefik 提供 HTTPS。APP 的 9521 端口不会发布到宿主机或公网。
 
-本指南介绍如何使用 Docker 部署燃油与保养追踪应用程序。您可以选择从 Docker Hub 拉取现成的镜像，或者自己构建并发布镜像。
+```text
+Internet
+   ↓
+Traefik :443
+   ↓
+Docker internal network
+   ↓
+Next.js :9521
+```
 
-## 📦 方式一：使用 Docker Hub 镜像（推荐）
+## 前提
 
-### 快速开始
+- Docker Engine
+- Docker Compose v2.24 或更高版本
+- Node.js 22.6 或更高版本（用于生成认证配置）
+- 一个域名
+- 域名的 DNS A/AAAA 记录已指向部署服务器
+- 公网 TCP 80 和 443 可以访问该服务器
+
+Traefik 使用固定的 `traefik:v3.7.1` 镜像。Docker provider 默认不暴露容器，dashboard 未公开，公网只开放 80/443。
+
+## 初始化
+
+在仓库根目录执行：
 
 ```bash
-# 创建数据目录
-mkdir -p ./data
-
-# 运行容器
-docker run -d \
-  --name fuel-tracker \
-  -p 9521:9521 \
-  -v ./data:/app/prisma/db \
-  -e DATABASE_URL="file:/app/prisma/db/dev.db" \
-  --restart unless-stopped \
-  jyh9521/fuel-tracker:latest
+cp .env.production.example .env.production
+npm run auth:generate
+mkdir -p data traefik/letsencrypt
+touch traefik/letsencrypt/acme.json
+chmod 600 .env.production traefik/letsencrypt/acme.json
 ```
 
-### 访问应用
+将 `npm run auth:generate` 输出的值原样填入 `.env.production`。至少填写：
 
-部署成功后，在浏览器中访问：
-- 本地访问：`http://localhost:9521`
-- 局域网访问：`http://你的服务器IP:9521`
+- `APP_DOMAIN`：只填写域名，例如 `fuel.example.com`，不要包含协议或路径
+- `ACME_EMAIL`：Let's Encrypt 到期通知邮箱
+- `APP_PASSWORD_HASH`：生成器输出的 scrypt hash
+- `SESSION_SECRET`：生成器输出的 session 签名 secret
 
-### 使用 Docker Compose
+保留：
 
-创建 `docker-compose.yml` 文件：
-
-```yaml
-version: '3.8'
-
-services:
-  fuel-tracker:
-    image: jyh9521/fuel-tracker:latest
-    container_name: fuel-tracker
-    ports:
-      - "9521:9521"
-    volumes:
-      - ./data:/app/prisma/db
-    environment:
-      - DATABASE_URL=file:/app/prisma/db/dev.db
-      - NODE_ENV=production
-    restart: unless-stopped
+```text
+DATABASE_URL=file:/app/prisma/db/dev.db
 ```
 
-然后运行：
-```bash
-docker-compose up -d
-```
+真实 `.env.production` 已被 git 和 Docker build context 忽略。认证 secret 只通过容器环境变量传入，不会写入 Docker labels。
 
-## 🛠️ 方式二：自己构建镜像
-
-### 前置准备
-
-1. **已安装并运行 Docker Desktop**
-   - **Windows 下载**: [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
-   - *注意：安装时请选中 "Use WSL 2 instead of Hyper-V"，安装后可能需要重启*
-2. 拥有 **Docker Hub** 账号（在 [hub.docker.com](https://hub.docker.com/) 注册）
-3. 可以使用命令行/终端（Terminal/PowerShell）
-
-### 步骤 1：登录 Docker Hub
+让当前 shell 的 Compose 命令使用该文件：
 
 ```bash
-docker login
+export COMPOSE_ENV_FILES=.env.production
 ```
 
-在提示时输入您的用户名和密码（或访问令牌）。
+PowerShell 使用：
 
-### 步骤 2：构建镜像
+```powershell
+$env:COMPOSE_ENV_FILES='.env.production'
+```
 
-在项目根目录下运行以下命令。请将 `your-username` 替换为您的 Docker Hub 用户名。
+每次打开新的部署 shell 都应先设置该变量；也可以在每条命令中显式使用 `docker compose --env-file .env.production ...`。
+
+在启动前检查 Compose 配置：
 
 ```bash
-# 构建并打上标签（version 1.0 和 latest）
-docker build -t your-username/fuel-tracker:1.0 -t your-username/fuel-tracker:latest .
+docker compose config
 ```
 
-**参数说明**：
-- `your-username`: 您的 Docker Hub 用户名
-- `fuel-tracker`: 镜像仓库名称
-- `.`: 表示 Dockerfile 在当前目录
-
-### 步骤 3：推送到 Docker Hub
+## 启动
 
 ```bash
-docker push your-username/fuel-tracker:1.0
-docker push your-username/fuel-tracker:latest
+docker compose up -d --build
 ```
 
-完成后，访问 `https://hub.docker.com/r/your-username/fuel-tracker` 查看您的仓库。
+首次启动时，现有 entrypoint 会执行已提交 migration 的非交互式部署命令：
 
-### 步骤 4：部署运行
+```text
+prisma migrate deploy
+```
+
+部署流程不使用 `prisma db push`、`prisma migrate reset` 或 `--accept-data-loss`。
+
+## 查看状态
 
 ```bash
-docker run -d \
-  --name fuel-tracker \
-  -p 9521:9521 \
-  -v ./data:/app/prisma/db \
-  -e DATABASE_URL="file:/app/prisma/db/dev.db" \
-  --restart unless-stopped \
-  your-username/fuel-tracker:latest
+docker compose ps
+docker compose logs -f app
+docker compose logs -f traefik
 ```
 
-## 📋 环境变量说明
+APP healthcheck 请求容器内部的 `GET /api/health`。该接口无需登录，只返回：
 
-| 变量名 | 说明 | 默认值 | 必填 |
-|--------|------|--------|------|
-| `DATABASE_URL` | SQLite 数据库文件路径 | `file:/app/prisma/db/dev.db` | 否 |
-| `PORT` | 应用运行端口 | `9521` | 否 |
-| `NODE_ENV` | 运行环境 | `production` | 否 |
+```json
+{
+  "status": "ok"
+}
+```
 
-## 💾 数据持久化
+它不会访问或修改数据库，也不会返回 secret、数据库路径、环境变量或用户数据。
 
-**重要**：务必挂载数据卷以持久化数据！
+## HTTPS 与登录限速
+
+Traefik 会把 HTTP 自动重定向到 HTTPS，并通过 Let's Encrypt HTTP challenge 申请证书。ACME 数据保存在宿主机：
+
+```text
+./traefik/letsencrypt/acme.json
+```
+
+删除或重建容器不会删除该文件。它包含证书私钥，应保持 `0600` 权限、纳入服务器备份并且绝不能提交到 git。
+
+`POST /api/auth/login` 使用单独的高优先级 router，并应用以下 RateLimit：
+
+- average：5
+- period：1 分钟
+- burst：5
+
+登录 router 和普通 APP router 都指向同一个 APP service。普通页面和其他 API 不使用这条严格的登录限速。
+
+## 网络与 Forwarded headers
+
+APP 只加入 `fuel-tracker-internal` 内部网络，只通过 `expose: 9521` 对 Traefik 可见；Compose 没有为 APP 配置宿主机 `ports`。Traefik 同时加入内部网络和外联网络，以便接收 80/443 流量并访问 ACME 服务。
+
+默认拓扑要求 Traefik 直接面向 Internet。配置没有启用不安全的 forwarded-header 信任模式，外部请求不能绕过 Traefik直接访问 APP 9521。
+
+如果 Traefik 前面还有 Cloudflare、CDN 或负载均衡器，只能为实际代理商公布的固定 CIDR 配置可信代理，例如在 Traefik 的 `web` 和 `websecure` entrypoint 上设置对应的 `forwardedHeaders.trustedIPs`。代理地址变化时必须同步更新。不要信任 `0.0.0.0/0`、`::/0` 或任意来源提供的 `X-Forwarded-*` header。
+
+## SQLite 持久化
+
+宿主机目录：
+
+```text
+./data
+```
+
+挂载到容器：
+
+```text
+/app/prisma/db
+```
+
+正式 SQLite 使用明确的 bind mount，不使用匿名 volume。删除或重建容器以及执行普通的 `docker compose down` 都不会删除 `./data/dev.db`；不要手动删除 `./data`。
+
+## 数据备份
+
+### APP 内 JSON 备份
+
+适合：
+
+- 用户手动导出
+- 在不同部署间迁移数据
+- 恢复车辆与油耗业务记录
+
+JSON 备份是应用层数据，不包含完整 SQLite 文件状态。
+
+### SQLite 文件备份
+
+适合：
+
+- 部署升级前
+- 服务器级灾难恢复
+- 保留与 schema migration 对应的完整数据库状态
+
+复制 SQLite 文件前，优先停止 APP，避免复制到写入中的不一致状态：
 
 ```bash
--v ./data:/app/prisma/db
+docker compose stop app
+cp data/dev.db data/dev.db.backup
+docker compose start app
 ```
 
-这会将 SQLite 数据库文件保存到宿主机的 `./data` 目录，确保容器重启后数据不会丢失。
+如果不能停机，应使用 SQLite 官方 backup API 或 `sqlite3` 的 `.backup` 命令，而不是在数据库大量写入时直接复制正在使用的文件。
 
-> [!WARNING]
-> **关于自动迁移**：容器启动时会自动检查并应用数据库架构更新。如果新的版本包含了破坏性的架构更改（如删除了字段），**系统在启动时会自动应用这些更改**。请务必定期备份您的数据库文件。
+备份文件也包含个人数据，应限制权限并保存到安全位置。
 
-**建议**：定期备份 `./data` 目录中的数据库文件。
+## 更新
 
-## 🔧 常用命令
+先停止 APP 并备份 SQLite：
 
 ```bash
-# 查看容器日志
-docker logs fuel-tracker
-
-# 实时查看日志
-docker logs -f fuel-tracker
-
-# 查看容器状态
-docker ps | grep fuel-tracker
-
-# 重启容器
-docker restart fuel-tracker
-
-# 停止容器
-docker stop fuel-tracker
-
-# 启动容器
-docker start fuel-tracker
-
-# 删除容器
-docker rm -f fuel-tracker
+docker compose stop app
+cp data/dev.db data/dev.db.backup
 ```
 
-## 🔄 更新应用
+然后更新代码、重新构建并启动：
 
 ```bash
-# 1. 拉取最新镜像
-docker pull jyh9521/fuel-tracker:latest
-
-# 2. 停止并删除旧容器
-docker stop fuel-tracker
-docker rm fuel-tracker
-
-# 3. 使用新镜像启动容器
-docker run -d \
-  --name fuel-tracker \
-  -p 9521:9521 \
-  -v ./data:/app/prisma/db \
-  -e DATABASE_URL="file:/app/prisma/db/dev.db" \
-  --restart unless-stopped \
-  jyh9521/fuel-tracker:latest
+git pull
+docker compose build
+docker compose up -d
 ```
 
-## 🐛 故障排除
+确认服务与 healthcheck 正常后，再按照你的备份保留策略处理旧备份。不要在未验证新版本前删除升级前备份。
 
-### 数据库权限问题
+## 回滚
 
-如果在 NAS 上遇到数据库文件的权限问题：
+1. 保留当前 `data/dev.db` 和升级前 SQLite 备份，不要用旧代码目录中的数据库覆盖它。
+2. 将代码切换到已知可用的 tag 或 commit。
+3. 重新构建并启动 APP 镜像：
+
+   ```bash
+   docker compose build app
+   docker compose up -d
+   ```
+
+4. 检查 APP 日志和 healthcheck。
+
+代码回滚不等于数据库回滚。若新版本已经执行 schema migration，旧代码可能无法读取新 schema；应先审查 migration 的兼容性。只有在明确需要恢复数据库且已停止 APP 时，才使用匹配时间点的 SQLite 备份。不要把 SQLite 数据跟随代码目录一起盲目回滚或覆盖。
+
+## 停止服务
 
 ```bash
-# 确保挂载的目录具有写入权限
-chmod 777 ./data
+docker compose down
 ```
 
-### 端口冲突
+该命令停止并删除容器与 Compose 网络，但不会删除 `./data` 或 `./traefik/letsencrypt` 中的 bind-mounted 文件。
 
-如果 9521 端口已被占用，可以映射到其他端口：
+## 故障排查
 
-```bash
-docker run -d \
-  --name fuel-tracker \
-  -p 8080:9521 \
-  -v ./data:/app/prisma/db \
-  -e DATABASE_URL="file:/app/prisma/db/dev.db" \
-  --restart unless-stopped \
-  jyh9521/fuel-tracker:latest
-```
-
-然后访问 `http://localhost:8080`
-
-### 容器无法启动
-
-查看详细日志排查问题：
-
-```bash
-docker logs fuel-tracker
-```
-
-### 数据库文件损坏
-
-如果数据库文件损坏，可以删除并重新初始化：
-
-```bash
-# 停止容器
-docker stop fuel-tracker
-
-# 备份旧数据（可选）
-cp ./data/dev.db ./data/dev.db.backup
-
-# 删除数据库文件
-rm ./data/dev.db
-
-# 重启容器，应用会自动创建新数据库
-docker start fuel-tracker
-```
-
-## 🏗️ 架构说明
-
-- **框架**: Next.js 16 (App Router)
-- **数据库**: Prisma + SQLite
-- **运行时**: Node.js 20
-- **端口**: 9521（可自定义）
-- **数据存储**: SQLite 文件数据库
-
-## 💡 最佳实践
-
-1. **数据备份**：定期备份 `./data` 目录
-2. **使用 Docker Compose**：便于管理和版本控制
-3. **反向代理**：使用 Nginx 或 Traefik 添加 HTTPS 支持
-4. **资源限制**：在生产环境中设置内存和 CPU 限制
-5. **日志管理**：配置日志轮转避免日志文件过大
-
-## 📱 支持的平台
-
-- ✅ Docker (Linux/amd64)
-- ✅ NAS 设备 (Synology, QNAP, etc.)
-- ✅ 云服务器 (AWS, Azure, GCP, etc.)
-- ✅ 本地开发环境
-
-## 📄 许可证
-
-MIT License
+- 证书无法签发：确认 DNS 已生效，公网 80/443 未被防火墙或其他服务占用，并查看 `docker compose logs -f traefik`。
+- APP 不健康：查看 `docker compose logs -f app`，确认 `.env.production` 中三个 APP 环境变量均已填写，且 `./data` 可写。
+- 登录返回 429：等待限速窗口恢复；普通页面和其他 API 不受登录限速 middleware 影响。
+- 修改域名后：更新 `APP_DOMAIN`，再次运行 `docker compose config`，再执行 `docker compose up -d`。

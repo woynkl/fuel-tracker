@@ -61,6 +61,28 @@ after(async () => {
 });
 
 test('真实认证 API 与受保护数据 API', async t => {
+    await t.test('Health API 无需登录即可返回 200', async () => {
+        const response = await fetch(`${origin}/api/health`);
+        assert.equal(response.status, 200);
+    });
+
+    await t.test('Health API 只返回固定健康状态', async () => {
+        const response = await fetch(`${origin}/api/health`);
+        assert.deepEqual(await response.json(), { status: 'ok' });
+    });
+
+    await t.test('Health API 不泄露环境变量或内部数据', async () => {
+        const response = await fetch(`${origin}/api/health`);
+        const body = await response.text();
+        assert.equal(body, '{"status":"ok"}');
+        for (const sensitiveValue of [passwordHash, sessionSecret, 'file:./dev.db']) {
+            assert.equal(body.includes(sensitiveValue), false);
+        }
+        for (const sensitiveKey of ['APP_PASSWORD_HASH', 'SESSION_SECRET', 'DATABASE_URL']) {
+            assert.equal(body.includes(sensitiveKey), false);
+        }
+    });
+
     await t.test('错误密码不能登录', async () => {
         const response = await fetch(`${origin}/api/auth/login`, {
             method: 'POST',

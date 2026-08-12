@@ -46,6 +46,10 @@ npm run build
 
 PowerShell 可使用 `$env:DATABASE_URL='file:./dev.db'` 设置数据库地址。
 
+## 公网部署
+
+仓库提供 Docker Compose + Traefik HTTPS 部署方案。先运行 `npm run auth:generate` 生成认证配置，再按照 [DEPLOY.md](DEPLOY.md) 配置域名、持久化 SQLite 和 Let's Encrypt。
+
 ## 技术栈
 
 - Next.js + TypeScript
