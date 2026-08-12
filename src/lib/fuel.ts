@@ -1,12 +1,9 @@
-export type FuelRecord = {
-    id: string;
-    mileage: number;
-    liters: number;
-    price: number;
-    unitPrice: number;
-    fullTank: boolean;
-    date: Date | string;
-};
+import type { FuelRecord as DomainFuelRecord } from './domain/types';
+
+export type FuelRecord = Pick<
+    DomainFuelRecord,
+    'id' | 'mileage' | 'liters' | 'price' | 'unitPrice' | 'fullTank' | 'date'
+>;
 
 export type IntervalConsumption = {
     startMileage: number;

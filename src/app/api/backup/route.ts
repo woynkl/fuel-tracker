@@ -6,7 +6,7 @@ import {
     restoreBackup,
     type BackupExportHost,
     type BackupTransactionHost,
-} from '@/lib/backup';
+} from '@/lib/backup-prisma';
 import { isJsonRequest, requireApiSession, validateSameOrigin } from '@/lib/auth';
 
 export async function GET(request: Request) {
