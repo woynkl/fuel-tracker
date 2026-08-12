@@ -3,6 +3,7 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { importBackupAfterValidation } from '@/lib/import-backup';
 import { getLocalRepository } from '@/lib/storage/client';
 
 export default function DataSettingsPage() {
@@ -53,15 +54,17 @@ export default function DataSettingsPage() {
             return;
         }
 
-        const confirmed = window.confirm(
-            '导入备份将覆盖当前车辆和全部加油记录。此操作无法撤销，确定继续吗？',
-        );
-        if (!confirmed) return;
-
         setImporting(true);
         try {
             const repository = getLocalRepository();
-            const result = await repository.importData(backup);
+            const result = await importBackupAfterValidation(
+                backup,
+                () => window.confirm(
+                    '导入备份将覆盖当前车辆和全部加油记录。此操作无法撤销，确定继续吗？',
+                ),
+                validatedBackup => repository.importData(validatedBackup),
+            );
+            if (!result) return;
             const [vehicle, records] = await Promise.all([
                 repository.getVehicle(),
                 repository.listFuelRecords(),

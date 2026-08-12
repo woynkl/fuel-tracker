@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { MaterialInput } from './ui/MaterialInput';
 import { calculateLiters } from '@/lib/fuel';
+import { calendarDateToStorageDate } from '@/lib/calendar-date';
 import { getLocalRepository } from '@/lib/storage/client';
 
 type AddFuelFormProps = {
@@ -39,7 +40,7 @@ export function AddFuelForm({ onSuccess, onCancel }: AddFuelFormProps) {
                 amount: Number(formData.price),
                 unitPrice: Number(formData.unitPrice),
                 fullTank: formData.fullTank,
-                date: `${formData.date}T00:00:00.000Z`,
+                date: calendarDateToStorageDate(formData.date),
             });
             onSuccess();
         } catch (saveError) {
