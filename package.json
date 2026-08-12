@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts src/lib/auth.test.ts src/lib/auth.integration.test.ts",
+    "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts src/lib/storage/indexeddb.test.ts src/lib/auth.test.ts src/lib/auth.integration.test.ts",
     "auth:generate": "node --experimental-strip-types scripts/generate-auth-secrets.mjs"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "eslint-config-prettier": "^10.1.8",
+    "fake-indexeddb": "^6.2.5",
     "prettier": "^3.8.0",
     "prisma": "5.19.1",
     "typescript": "^5"
