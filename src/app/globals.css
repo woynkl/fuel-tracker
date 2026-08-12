@@ -131,6 +131,11 @@ h2 { font-size: 1.25rem; }
 .backup-status { padding: 12px; border-radius: 12px; font-size: .86rem; line-height: 1.45; }
 .backup-status.success { color: #176b42; background: #d9f8e7; }
 .backup-status.error { color: var(--error); background: #ffdad6; }
+.local-data-notice { padding-top: 16px; color: var(--muted); border-top: 1px solid #e8e1eb; font-size: .82rem; line-height: 1.55; }
+.storage-error { display: grid; gap: 16px; }
+.storage-error h1 { font-size: 1.6rem; }
+.storage-error p { color: var(--error); line-height: 1.5; }
+.storage-error .btn { width: fit-content; }
 .mb-2 { margin-bottom: 8px; }
 .pl-0 { padding-left: 0; }
 

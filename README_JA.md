@@ -1,98 +1,40 @@
-# 🚗 燃費・メンテナンス・トラッカー (Fuel & Maintenance Tracker)
+# 個人燃費記録
 
-[中文](README.md) | [日本語](README_JA.md) | [English](README_EN.md)
+個人の1台の車向けに作られた、モバイル優先・ローカル優先の燃費記録アプリです。
 
-<p align="center">
-  <img src="public/fuel-tracker.jpg" width="100%" />
-</p>
+業務データは現在のブラウザーの IndexedDB に直接保存されます。給油記録、削除、統計、JSON バックアップの入出力に、サーバー、アカウント、ログイン、SQLite、クラウドサービスは必要ありません。
 
-車両の管理、燃費の追跡、およびメンテナンス時期の予測を行うためのモダンなWebアプリケーションです。
+## 機能
 
-## 📸 アプリのスクリーンショット
+- 走行距離、支払金額、単価、日付、満タンかどうかを記録
+- `金額 / 単価` から給油量を計算
+- full-to-full 方式で実燃費とコストを計算
+- 記録削除後にすべての統計を再計算
+- schemaVersion 1 JSON バックアップをローカルで入出力
+- 旧サーバー版の schemaVersion 1 バックアップをインポート可能
 
-<p align="center">
-  <img src="public/screenshot1.jpg" width="22%" />
-  <img src="public/screenshot2.jpg" width="22%" />
-  <img src="public/screenshot3.jpg" width="22%" />
-  <img src="public/screenshot4.jpg" width="22%" />
-</p>
+データは現在の端末だけに保存されます。定期的にバックアップをエクスポートし、ブラウザーデータの削除や将来の APK のアンインストール前には必ずバックアップしてください。
 
-## 📱 ホーム画面に追加
+## 開発
 
-このアプリはスマホにインストールして、ネイティブアプリのように使用できます：
-
-*   **Android (Chrome)**: メニューボタン (⋮) をタップ -> **「ホーム画面に追加」**を選択。
-*   **iOS (Safari)**: **共有**ボタン (四角から矢印) をタップ -> スクロールして**「ホーム画面に追加」**を選択。
-
-## ✨ 主な機能
-
-*   **複数車両管理**: 自動車、バイク、三輪車など、複数の車両を登録・管理できます。
-*   **給油記録**: 給油の詳細（走行距離、リッター数、価格、満タンかどうか）を簡単に記録できます。
-*   **スマート統計**: 平均燃費 (L/100km)、kmあたりのコスト、総走行距離を自動計算します。
-*   **メンテナンス予測**: あなたの運転習慣に基づいて、次回のサービス日を予測します。
-*   **ガソリンスタンド検索**: 統合された地図機能で、近くのガソリンスタンドを素早く見つけられます。
-*   **多言語対応**: 日本語、中国語、英語にネイティブ対応しています。
-*   **モバイル対応**: レスポンシブデザインにより、スマートフォンとデスクトップの両方で快適に利用できます (Material Design 3)。
-
-## 🛠️ 技術スタック
-
-*   **フレームワーク**: [Next.js 16](https://nextjs.org/) (App Router)
-*   **データベース**: [Prisma](https://www.prisma.io/) (SQLite)
-*   **スタイル**: [TailwindCSS](https://tailwindcss.com/) + CSS Modules (Material Design 3 スタイル)
-*   **地図**: [Leaflet](https://leafletjs.com/) + OpenStreetMap
-*   **デプロイ**: Docker 対応
-
-## 🚀 クイックスタート
-
-### ローカル開発
-
-1.  **リポジトリのクローン**
-    ```bash
-    git clone https://github.com/yourusername/fuel-maintenance-tracker.git
-    cd fuel-maintenance-tracker
-    ```
-
-2.  **依存関係のインストール**
-    ```bash
-    npm install
-    ```
-
-3.  **データベースの初期化**
-    ```bash
-    npx prisma migrate dev
-    ```
-
-4.  **開発サーバーの起動**
-    ```bash
-    npm run dev
-    ```
-    `http://localhost:3000` にアクセスしてください。
-
-### 🐳 Docker デプロイ
-
-詳細な [Docker デプロイメントガイド (英語/中国語)](DEPLOY.md) をご用意しています。
-
-簡易コマンド:
+Node.js 22.6 以上が必要です。
 
 ```bash
-docker build -t fuel-tracker .
-docker run -d -p 9521:9521 -v ./data:/app/prisma/db fuel-tracker
+npm install
+npm test
+npm run lint
+npm run dev
 ```
 
-## 📂 プロジェクト構造
+データベースや認証用の環境変数は不要です。この段階では通常の Next.js 開発・ビルドを利用します。static export、Capacitor、Android パッケージ化は後続フェーズです。
 
-```
-src/
-├── app/              # Next.js App Router ページ
-├── components/       # React UI コンポーネント
-├── lib/              # ユーティリティ (計算ロジック, DB, i18n)
-└── ...
-```
+## 技術構成
 
-## 🤝 貢献
+- Next.js + React + TypeScript
+- IndexedDB LocalRepository
+- 純粋な TypeScript の燃費・バックアップロジック
+- モバイル向け Material スタイル UI
 
-プルリクエストや Issue の報告は大歓迎です！
+## ライセンス
 
-## 📄 ライセンス
-
-MIT License
+この fork は `jyh9521/fuel-tracker` の MIT ライセンスと原作者表記を引き継ぎます。

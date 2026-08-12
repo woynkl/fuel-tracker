@@ -1,39 +1,85 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { calculateConsumption, calculateRecordMetrics, FuelRecord } from '@/lib/fuel';
+import { calculateConsumption, calculateRecordMetrics } from '@/lib/fuel';
+import { getLocalRepository } from '@/lib/storage/client';
+import type { StoredFuelRecord, StoredVehicle } from '@/lib/storage/repository';
 import { Button } from '@/components/ui/Button';
-import { LogoutButton } from '@/components/LogoutButton';
-
-type Vehicle = {
-    id: string;
-    name: string;
-    odometer: number;
-};
 
 const number = (value: number | null, digits = 2) => value === null ? '--' : value.toFixed(digits);
 
-export function DashboardClient({ vehicle, initialRecords }: { vehicle: Vehicle; initialRecords: FuelRecord[] }) {
+export function DashboardClient() {
     const router = useRouter();
-    const [records, setRecords] = useState(initialRecords);
+    const [vehicle, setVehicle] = useState<StoredVehicle | null>(null);
+    const [records, setRecords] = useState<StoredFuelRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [storageError, setStorageError] = useState('');
     const [deleting, setDeleting] = useState<string | null>(null);
     const stats = useMemo(() => calculateConsumption(records), [records]);
     const metrics = useMemo(() => calculateRecordMetrics(records), [records]);
+    const historyRecords = useMemo(() => [...records].sort((a, b) => b.mileage - a.mileage), [records]);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setStorageError('');
+        try {
+            const repository = getLocalRepository();
+            await repository.initialize();
+            const [storedVehicle, storedRecords] = await Promise.all([
+                repository.getVehicle(),
+                repository.listFuelRecords(),
+            ]);
+            if (!storedVehicle) throw new Error('无法初始化本地车辆数据');
+            setVehicle(storedVehicle);
+            setRecords(storedRecords);
+        } catch (error) {
+            setStorageError(error instanceof Error ? error.message : '无法读取本地数据');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadData();
+    }, [loadData]);
 
     const deleteRecord = async (id: string) => {
         if (!window.confirm('确定删除这条加油记录吗？删除后统计会自动重算。')) return;
         setDeleting(id);
-        const response = await fetch(`/api/fuel/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            setRecords(current => current.filter(record => record.id !== id));
-            router.refresh();
-        } else {
-            const result = await response.json().catch(() => null);
-            window.alert(result?.error ?? '删除失败，请稍后重试');
+        try {
+            const repository = getLocalRepository();
+            const deleted = await repository.deleteFuelRecord(id);
+            if (!deleted) throw new Error('记录不存在或已被删除');
+            const [storedVehicle, storedRecords] = await Promise.all([
+                repository.getVehicle(),
+                repository.listFuelRecords(),
+            ]);
+            if (!storedVehicle) throw new Error('无法读取本地车辆数据');
+            setVehicle(storedVehicle);
+            setRecords(storedRecords);
+        } catch (error) {
+            window.alert(error instanceof Error ? error.message : '删除失败，请稍后重试');
+        } finally {
+            setDeleting(null);
         }
-        setDeleting(null);
     };
+
+    if (loading) {
+        return <main className="layout-container"><div className="empty-state" role="status">正在读取本地数据…</div></main>;
+    }
+
+    if (storageError || !vehicle) {
+        return (
+            <main className="layout-container form-page">
+                <section className="md-card storage-error" role="alert">
+                    <h1>无法读取本地数据</h1>
+                    <p>{storageError || '本地车辆数据不存在'}</p>
+                    <Button onClick={() => void loadData()}>重试</Button>
+                </section>
+            </main>
+        );
+    }
 
     return (
         <main className="layout-container dashboard">
@@ -49,7 +95,6 @@ export function DashboardClient({ vehicle, initialRecords }: { vehicle: Vehicle;
                     </Button>
                     <div className="header-secondary-actions">
                         <Button variant="ghost" onClick={() => router.push('/settings/data')}>数据管理</Button>
-                        <LogoutButton />
                     </div>
                 </div>
             </header>
@@ -79,7 +124,7 @@ export function DashboardClient({ vehicle, initialRecords }: { vehicle: Vehicle;
                     <div className="empty-state">还没有加油记录，点击上方按钮开始记录。</div>
                 ) : (
                     <div className="record-list">
-                        {records.map(record => {
+                        {historyRecords.map(record => {
                             const recordMetrics = metrics.get(record.id);
                             return (
                                 <article className="record-card" key={record.id}>

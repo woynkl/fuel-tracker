@@ -1,98 +1,40 @@
-# 🚗 Fuel & Maintenance Tracker
+# Personal Fuel Tracker
 
-[中文](README.md) | [日本語](README_JA.md) | [English](README_EN.md)
+A mobile-first, local-first fuel tracker for one personal vehicle.
 
-<p align="center">
-  <img src="public/fuel-tracker.jpg" width="100%" />
-</p>
+Business data is stored directly in IndexedDB in the current browser. Recording fuel, deleting records, calculating statistics, and JSON backup/restore do not require a server, account, login, SQLite database, or cloud service.
 
-A modern web application for managing your garage, tracking fuel consumption, and predicting maintenance needs.
+## Features
 
-## 📸 Screenshots
+- Record mileage, amount paid, unit price, date, and full/partial fill
+- Calculate liters from `amount / unit price`
+- Calculate real consumption and cost with full-to-full intervals
+- Recalculate all derived statistics after deletion
+- Export and import schemaVersion 1 JSON backups locally
+- Import schemaVersion 1 backups from the previous server version
 
-<p align="center">
-  <img src="public/screenshot1.jpg" width="22%" />
-  <img src="public/screenshot2.jpg" width="22%" />
-  <img src="public/screenshot3.jpg" width="22%" />
-  <img src="public/screenshot4.jpg" width="22%" />
-</p>
+Data exists only on the current device. Export backups regularly, and always export before clearing browser data or uninstalling a future APK.
 
-## 📱 Add to Home Screen
+## Development
 
-You can install this app on your phone and use it like a native app:
-
-*   **Android (Chrome)**: Tap the menu button (⋮) -> Select **"Add to Home Screen"**.
-*   **iOS (Safari)**: Tap the **Share** button (box with arrow) -> Scroll down and select **"Add to Home Screen"**.
-
-## ✨ Key Features
-
-*   **Multi-Vehicle Management**: Support for cars, motorcycles, tricycles, and more.
-*   **Fuel Tracking**: Easily log refuel details (odometer, liters, price, full tank status).
-*   **Smart Statistics**: Automatically calculate average consumption (L/100km), cost per km, and total distance.
-*   **Maintenance Prediction**: Intelligently predicts your next service date based on your driving habits.
-*   **Gas Station Finder**: Integrated map to locate nearby gas stations.
-*   **Multi-language Support**: Native support for English, Japanese, and Chinese.
-*   **Mobile Optimized**: Responsive design for both mobile and desktop (Material Design 3).
-
-## 🛠️ Tech Stack
-
-*   **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-*   **Database**: [Prisma](https://www.prisma.io/) (SQLite)
-*   **Styling**: [TailwindCSS](https://tailwindcss.com/) + CSS Modules (Material Design 3 Styling)
-*   **Maps**: [Leaflet](https://leafletjs.com/) + OpenStreetMap
-*   **Deployment**: Docker support
-
-## 🚀 Quick Start
-
-### Local Development
-
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/yourusername/fuel-maintenance-tracker.git
-    cd fuel-maintenance-tracker
-    ```
-
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
-
-3.  **Initialize Database**
-    ```bash
-    npx prisma migrate dev
-    ```
-
-4.  **Start Development Server**
-    ```bash
-    npm run dev
-    ```
-    Visit `http://localhost:3000`.
-
-### 🐳 Docker Deployment
-
-See our detailed [Deployment Guide](DEPLOY.md).
-
-Quick command:
+Node.js 22.6 or newer is required.
 
 ```bash
-docker build -t fuel-tracker .
-docker run -d -p 9521:9521 -v ./data:/app/prisma/db fuel-tracker
+npm install
+npm test
+npm run lint
+npm run dev
 ```
 
-## 📂 Project Structure
+No database or authentication environment variables are required. This phase still uses the normal Next.js development/build workflow; static export, Capacitor, and Android packaging are later phases.
 
-```
-src/
-├── app/              # Next.js App Router Pages
-├── components/       # React UI Components
-├── lib/              # Utilities (Logic, DB, i18n)
-└── ...
-```
+## Stack
 
-## 🤝 Contributing
+- Next.js + React + TypeScript
+- IndexedDB LocalRepository
+- Pure TypeScript fuel and backup logic
+- Mobile Material-style UI
 
-Pull requests and issues are welcome!
+## License
 
-## 📄 License
-
-MIT License
+This fork retains the original MIT license and author attribution from `jyh9521/fuel-tracker`.

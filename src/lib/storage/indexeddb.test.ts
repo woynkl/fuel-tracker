@@ -141,6 +141,10 @@ test('删除记录会重算 odometer，不存在的 ID 明确返回 false', asyn
     assert.equal(await local.deleteFuelRecord('missing'), false);
     assert.equal(await local.deleteFuelRecord(second.id), true);
     assert.equal((await local.getVehicle())?.odometer, 10000);
+    const recalculated = calculateConsumption(await local.listFuelRecords());
+    assert.equal(recalculated.totalDistance, 0);
+    assert.equal(recalculated.averageConsumption, null);
+    assert.equal(recalculated.lastConsumption, null);
     assert.equal(await local.deleteFuelRecord(first.id), true);
     assert.equal((await local.getVehicle())?.odometer, 0);
     assert.deepEqual(await local.listFuelRecords(), []);

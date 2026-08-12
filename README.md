@@ -1,57 +1,47 @@
 # 个人油耗记录
 
-这是一个面向个人单车使用的手机油耗记录 MVP，基于 [`jyh9521/fuel-tracker`](https://github.com/jyh9521/fuel-tracker) 修改。
+一个面向个人单车使用、手机优先、本地数据优先的油耗记录 APP。
 
-每次加油只需录入：
+业务数据直接保存在当前浏览器的 IndexedDB 中。日常记录、删除、统计和 JSON 备份不依赖服务器、账号、登录、SQLite 或云服务。
 
-- 当前表显里程
-- 实际支付金额
-- 当前每升油价
-- 日期与是否加满
+## 功能
 
-应用会自动计算加油升数、行驶距离、真实油耗（L/100km）、每公里费用和百公里费用。数据保存在本地 SQLite 数据库中，无需注册或云账号；部署到公网时使用单个 APP 密码保护个人数据。应用保留 PWA 能力，可从手机浏览器添加到主屏幕。
+- 记录当前里程、加油金额、油价、日期和是否加满
+- 自动按 `金额 / 油价` 计算加油升数
+- 使用 full-to-full 规则计算真实油耗和用车成本
+- 删除记录后从完整记录数组重新计算统计
+- 在浏览器本地导出和导入 schemaVersion 1 JSON 备份
+- 兼容旧 server 版本导出的 schemaVersion 1 备份
 
-## 油耗规则
-
-第一条加满记录只作为计算基准，不计入平均油耗。完整周期必须从一条“加满”记录开始，到下一条“加满”记录结束；期间的未加满记录会累加到该周期：
-
-```text
-加油升数 = 支付金额 / 每升油价
-周期油耗 = 周期内加油升数 / 周期行驶距离 × 100
-每公里费用 = 周期内加油金额 / 周期行驶距离
-百公里费用 = 每公里费用 × 100
-```
+数据只保存在当前设备。建议定期导出 JSON 备份；清除浏览器数据或卸载未来 APK 前必须先导出备份。
 
 ## 本地开发
 
-需要 Node.js 22.6 或更高版本（Docker 镜像使用 Node.js 22）。
-
-先生成密码 hash 和 session 签名 secret：
-
-```bash
-npm run auth:generate
-```
-
-将命令输出的 `APP_PASSWORD_HASH` 和 `SESSION_SECRET` 原样保存到本地 `.env`、`.env.local`、Docker environment 或部署平台环境变量，无需手工转义。明文密码不会写入源码或数据库，实际 hash、secret 和 `.env` 文件都不应提交到 git；变量格式可参考 `.env.example`。
+需要 Node.js 22.6 或更高版本。
 
 ```bash
 npm install
-set DATABASE_URL=file:./dev.db
-npx prisma generate
-npx prisma migrate dev
 npm test
 npm run lint
+npm run dev
+```
+
+打开开发服务器显示的本地地址即可。无需数据库、环境变量或认证配置。
+
+Production build 检查：
+
+```bash
 npm run build
 ```
 
-PowerShell 可使用 `$env:DATABASE_URL='file:./dev.db'` 设置数据库地址。
+本阶段仍使用 Next.js 开发和构建流程；static export、Capacitor 和 Android APK 属于后续阶段。
 
 ## 技术栈
 
-- Next.js + TypeScript
-- Prisma + SQLite
+- Next.js + React + TypeScript
+- IndexedDB LocalRepository
+- 纯 TypeScript fuel / backup 业务逻辑
 - 轻量 Material 风格移动端 UI
-- Web App Manifest / PWA 主屏幕支持
 
 ## License
 

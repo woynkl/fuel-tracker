@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { MaterialInput } from './ui/MaterialInput';
 import { calculateLiters } from '@/lib/fuel';
+import { calendarDateToStorageDate } from '@/lib/calendar-date';
+import { getLocalRepository } from '@/lib/storage/client';
 
 type AddFuelFormProps = {
-    vehicleId: string;
     onSuccess: () => void;
     onCancel: () => void;
 };
@@ -17,7 +18,7 @@ const localDate = () => {
     return `${year}-${month}-${day}`;
 };
 
-export function AddFuelForm({ vehicleId, onSuccess, onCancel }: AddFuelFormProps) {
+export function AddFuelForm({ onSuccess, onCancel }: AddFuelFormProps) {
     const [formData, setFormData] = useState({
         mileage: '',
         price: '',
@@ -34,20 +35,16 @@ export function AddFuelForm({ vehicleId, onSuccess, onCancel }: AddFuelFormProps
         setError('');
         setSaving(true);
         try {
-            const res = await fetch('/api/fuel', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, vehicleId }),
+            await getLocalRepository().addFuelRecord({
+                mileage: Number(formData.mileage),
+                amount: Number(formData.price),
+                unitPrice: Number(formData.unitPrice),
+                fullTank: formData.fullTank,
+                date: calendarDateToStorageDate(formData.date),
             });
-            if (res.ok) {
-                onSuccess();
-                return;
-            }
-            const result = await res.json().catch(() => null);
-            setError(result?.error ?? '保存失败，请稍后重试');
-        } catch (requestError) {
-            console.error(requestError);
-            setError('网络异常，请稍后重试');
+            onSuccess();
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : '保存失败，请稍后重试');
         } finally {
             setSaving(false);
         }
