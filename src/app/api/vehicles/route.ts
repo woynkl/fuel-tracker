@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireApiSession } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+
     try {
         let vehicle = await prisma.vehicle.findFirst({ orderBy: { createdAt: 'asc' } });
         if (!vehicle) {

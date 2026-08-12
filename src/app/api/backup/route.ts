@@ -7,8 +7,12 @@ import {
     type BackupExportHost,
     type BackupTransactionHost,
 } from '@/lib/backup';
+import { isJsonRequest, requireApiSession, validateSameOrigin } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+
     try {
         const backup = await loadBackupPayload(prisma as unknown as BackupExportHost);
         const date = backup.exportedAt.slice(0, 10);
@@ -31,6 +35,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+    if (!validateSameOrigin(request)) {
+        return NextResponse.json({ error: '不允许跨站写入' }, { status: 403 });
+    }
+    if (!isJsonRequest(request)) {
+        return NextResponse.json({ error: 'Content-Type 必须是 application/json' }, { status: 415 });
+    }
+
     try {
         const body: unknown = await request.json();
         const result = await restoreBackup(prisma as unknown as BackupTransactionHost, body);

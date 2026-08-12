@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { calculateConsumption, calculateRecordMetrics, FuelRecord } from '@/lib/fuel';
 import { Button } from '@/components/ui/Button';
+import { LogoutButton } from '@/components/LogoutButton';
 
 type Vehicle = {
     id: string;
@@ -43,10 +44,13 @@ export function DashboardClient({ vehicle, initialRecords }: { vehicle: Vehicle;
                     <p className="text-muted">当前表显 {vehicle.odometer.toLocaleString('zh-CN')} km</p>
                 </div>
                 <div className="header-actions">
-                    <Button variant="ghost" onClick={() => router.push('/settings/data')}>数据管理</Button>
                     <Button className="add-button" onClick={() => router.push(`/vehicle/${vehicle.id}/add-fuel`)}>
                         ＋ 记录加油
                     </Button>
+                    <div className="header-secondary-actions">
+                        <Button variant="ghost" onClick={() => router.push('/settings/data')}>数据管理</Button>
+                        <LogoutButton />
+                    </div>
                 </div>
             </header>
 

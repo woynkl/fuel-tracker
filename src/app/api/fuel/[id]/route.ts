@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireApiSession, validateSameOrigin } from '@/lib/auth';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const authError = await requireApiSession(request);
+    if (authError) return authError;
+    if (!validateSameOrigin(request)) {
+        return NextResponse.json({ error: '不允许跨站写入' }, { status: 403 });
+    }
+
     const { id } = await params;
     try {
         const record = await prisma.fuelRecord.findUnique({ where: { id } });

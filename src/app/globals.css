@@ -37,7 +37,8 @@ button, input { font: inherit; }
   justify-content: space-between;
   gap: 16px;
 }
-.header-actions { display: flex; align-items: center; gap: 8px; }
+.header-actions { display: flex; align-items: flex-end; flex-direction: column; gap: 4px; }
+.header-secondary-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
 h1, h2, p { margin: 0; }
 h1 { font-size: clamp(1.8rem, 8vw, 2.4rem); letter-spacing: -0.04em; }
 h2 { font-size: 1.25rem; }
@@ -59,6 +60,11 @@ h2 { font-size: 1.25rem; }
 .btn-secondary { color: var(--primary); background: var(--primary-container); }
 .btn-ghost { color: var(--primary); background: transparent; }
 .add-button { white-space: nowrap; }
+.login-page { display: grid; min-height: 100svh; place-items: center; padding: 24px 16px; }
+.login-card { width: min(100%, 390px); }
+.login-card h1 { margin: 4px 0 28px; }
+.login-card form { display: grid; }
+.login-button { width: 100%; }
 
 .hero-card {
   padding: 26px 22px;
@@ -130,8 +136,9 @@ h2 { font-size: 1.25rem; }
 
 @media (max-width: 440px) {
   .dashboard-header { align-items: flex-start; flex-direction: column; }
-  .header-actions { width: 100%; }
-  .header-actions .btn { flex: 1; padding-inline: 14px; }
+  .header-actions { align-items: stretch; width: 100%; }
+  .header-actions > .add-button { width: 100%; }
+  .header-secondary-actions .btn { min-height: 40px; padding-inline: 14px; }
   .hero-card { padding-inline: 14px; }
 }
 
