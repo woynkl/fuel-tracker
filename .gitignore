@@ -17,6 +17,16 @@
 /.next/
 /out/
 
+# Android build and release artifacts
+/artifacts/
+*.apk
+*.aab
+*.jks
+*.keystore
+signing.properties
+/android/local.properties
+/android/**/build/
+
 # production
 /build
 
