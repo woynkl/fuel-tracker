@@ -3,6 +3,7 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { exportBackupFile } from '@/lib/export-backup';
 import { importBackupAfterValidation } from '@/lib/import-backup';
 import { getLocalRepository } from '@/lib/storage/client';
 
@@ -18,16 +19,13 @@ export default function DataSettingsPage() {
         setExporting(true);
         try {
             const backup = await getLocalRepository().exportData();
-            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `fuel-backup-${backup.exportedAt.slice(0, 10)}.json`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-            setStatus({ type: 'success', message: `已导出 ${backup.fuelRecords.length} 条加油记录` });
+            const result = await exportBackupFile(backup);
+            setStatus({
+                type: 'success',
+                message: result.method === 'android-share'
+                    ? `已准备 ${backup.fuelRecords.length} 条记录，请在系统面板中保存到 APP 外部位置`
+                    : `已导出 ${backup.fuelRecords.length} 条加油记录`,
+            });
         } catch (error) {
             setStatus({ type: 'error', message: error instanceof Error ? error.message : '导出失败' });
         } finally {

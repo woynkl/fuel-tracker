@@ -81,3 +81,37 @@ test('静态 APP manifest 保持产品标识且源码不依赖远程运行时资
         assert.doesNotMatch(source, /next\/font|https?:\/\//, path.pathname);
     }
 });
+
+test('Android 备份使用官方 Cache + Share，浏览器保留 Blob download', () => {
+    const source = readFileSync(new URL('export-backup.ts', import.meta.url), 'utf8');
+    assert.match(source, /Capacitor\.getPlatform\(\) === ['"]android['"]/);
+    assert.match(source, /directory:\s*Directory\.Cache/);
+    assert.match(source, /Share\.share/);
+    assert.match(source, /new Blob/);
+    assert.doesNotMatch(source, /Directory\.(?:Documents|ExternalStorage)/);
+});
+
+test('Capacitor Android 身份、静态资源和存储边界保持稳定', () => {
+    const config = readFileSync(new URL('../../capacitor.config.ts', import.meta.url), 'utf8');
+    assert.match(config, /appId:\s*['"]com\.woynkl\.fueltracker['"]/);
+    assert.match(config, /appName:\s*['"]油耗记录['"]/);
+    assert.match(config, /webDir:\s*['"]out['"]/);
+    assert.doesNotMatch(config, /server\s*:/);
+
+    const gradle = readFileSync(new URL('../../android/app/build.gradle', import.meta.url), 'utf8');
+    assert.match(gradle, /applicationId ['"]com\.woynkl\.fueltracker['"]/);
+    assert.match(gradle, /getOrElse\(['"]2['"]\)/);
+    assert.match(gradle, /versionName ['"]0\.1\.0['"]/);
+    assert.match(gradle, /\.fuel-tracker\/signing\/signing\.properties/);
+
+    const indexedDb = readFileSync(new URL('storage/indexeddb.ts', import.meta.url), 'utf8');
+    assert.match(indexedDb, /fuel-tracker/);
+    assert.match(indexedDb, /LOCAL_DATABASE_VERSION\s*=\s*1/);
+
+    const manifest = readFileSync(
+        new URL('../../android/app/src/main/AndroidManifest.xml', import.meta.url),
+        'utf8',
+    );
+    assert.match(manifest, /android:allowBackup=["']false["']/);
+    assert.doesNotMatch(manifest, /READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/);
+});

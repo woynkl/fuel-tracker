@@ -8,15 +8,21 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "cap:sync": "npm run build && cap sync android",
     "lint": "eslint",
     "test": "node --test --experimental-strip-types src/lib/fuel.test.ts src/lib/backup.test.ts src/lib/calendar-date.test.ts src/lib/import-backup.test.ts src/lib/storage/indexeddb.test.ts src/lib/local-first.test.ts"
   },
   "dependencies": {
+    "@capacitor/android": "8.4.2",
+    "@capacitor/core": "8.4.2",
+    "@capacitor/filesystem": "8.1.2",
+    "@capacitor/share": "8.0.1",
     "next": "16.1.4",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.4.2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

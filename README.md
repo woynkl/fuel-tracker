@@ -42,7 +42,31 @@ npm run build
 python -m http.server 8000 --directory out
 ```
 
-然后访问 `http://127.0.0.1:8000/`。Capacitor 和 Android APK 属于后续阶段，本阶段不包含。
+然后访问 `http://127.0.0.1:8000/`。
+
+## Android 构建
+
+Android 包使用 Capacitor 8，把 `out/` 静态资源打包进 WebView。应用标识固定为
+`com.woynkl.fueltracker`，日常使用不需要 Node.js、服务器或网络。
+
+开发机需准备 JDK 21 和 Android SDK（compile/target SDK 36，min SDK 24）。同步 Web
+资源后可直接用 Gradle wrapper 构建：
+
+```bash
+npm install
+npm run cap:sync
+cd android
+./gradlew assembleRelease
+```
+
+Windows 最后一条命令使用 `gradlew.bat assembleRelease`。release 构建必须在仓库外的
+`~/.fuel-tracker/signing/signing.properties` 提供长期签名配置；配置缺失时构建会明确失败，
+不会退回临时 signer。私钥、密码、APK、`local.properties` 和构建目录均不会进入 Git。
+
+签名 keystore 必须单独、安全地长期备份。若丢失它，未来 APK 将无法覆盖安装升级。
+每次升级前也应先从 APP 导出 JSON 备份；卸载 APP 会删除其本地 IndexedDB 数据。
+
+给非开发用户的初装、离线、备份和覆盖升级步骤见 [ANDROID_TEST.md](ANDROID_TEST.md)。
 
 ## 技术栈
 
