@@ -26,7 +26,23 @@ npm run lint
 npm run dev
 ```
 
-データベースや認証用の環境変数は不要です。この段階では通常の Next.js 開発・ビルドを利用します。static export、Capacitor、Android パッケージ化は後続フェーズです。
+データベースや認証用の環境変数は不要です。`npm run dev` はローカル開発専用です。
+
+完全な静的 production artifact は次で生成します：
+
+```bash
+npm run build
+```
+
+結果は `out/` に生成され、通常の静的ファイルサーバーで配信できます。production では `next start` を使用せず、Node.js server、database、environment variables、server API は不要です。
+
+ビルド後の一時 preview：
+
+```bash
+python -m http.server 8000 --directory out
+```
+
+Capacitor と Android APK packaging は後続フェーズであり、この変更には含みません。
 
 ## 技術構成
 

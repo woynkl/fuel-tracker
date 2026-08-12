@@ -90,7 +90,7 @@ export function DashboardClient() {
                     <p className="text-muted">当前表显 {vehicle.odometer.toLocaleString('zh-CN')} km</p>
                 </div>
                 <div className="header-actions">
-                    <Button className="add-button" onClick={() => router.push(`/vehicle/${vehicle.id}/add-fuel`)}>
+                    <Button className="add-button" onClick={() => router.push('/add-fuel')}>
                         ＋ 记录加油
                     </Button>
                     <div className="header-secondary-actions">

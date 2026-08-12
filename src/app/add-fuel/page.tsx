@@ -29,10 +29,7 @@ export default function AddFuelPage() {
             </header>
 
             <div className="md-card form-card">
-                <AddFuelForm
-                    onSuccess={handleSuccess}
-                    onCancel={handleCancel}
-                />
+                <AddFuelForm onSuccess={handleSuccess} onCancel={handleCancel} />
             </div>
         </main>
     );
