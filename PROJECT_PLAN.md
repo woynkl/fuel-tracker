@@ -719,31 +719,17 @@ git diff --check
 
 ## 26. 建议 PR 顺序
 
-### PR #5
-
-```text
+PR #6
 refactor: decouple fuel domain from Prisma
-```
 
-目标：Domain 独立。
-
-### PR #6
-
-```text
+PR #7
 feat: add local IndexedDB storage
-```
 
-目标：本地持久化层完成。
-
-### PR #7
-
-```text
+PR #8
 refactor: move app to local-first storage
-```
 
-目标：UI 完全不调用业务 API，同时删除 Prisma、业务 API 和 authentication。
-
-### PR #8
+PR #9
+feat: build local Android app
 
 ```text
 feat: build local Android app
